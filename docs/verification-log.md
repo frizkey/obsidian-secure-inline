@@ -15,12 +15,12 @@ Use disposable values only. Do not record private identities or decrypted produc
 
 | Area | Check | Result | Evidence | Follow-up |
 |------|-------|--------|----------|-----------|
-| Desktop | Plugin installs and enables in test vault | Pending | Requires interactive Obsidian session | Manual verification |
-| Desktop | `keys.txt` identities/recipients load | Pending | Requires interactive Obsidian session | Manual verification |
-| Desktop | Short selection encrypts to `sec:v1:` token | Pending | Requires interactive Obsidian session | Manual verification |
-| Desktop | Multi-line selection encrypts to `secure` block | Pending | Requires interactive Obsidian session | Manual verification |
-| Desktop | Context menu encrypts non-empty selection | Pending | Requires interactive Obsidian session | Manual verification |
-| Desktop | Empty selection opens text/clipboard modal | Pending | Requires interactive Obsidian session | Manual verification |
+| Desktop | Plugin installs and enables in test vault | Pending | `main.js` and `manifest.json` linked into `.superpowers/manual-vault`; interactive Obsidian unavailable in CLI | Manual verification |
+| Desktop | `keys.txt` identities/recipients load | Pending | `~/.config/age/keys.txt` absent; `age-keygen` not installed; parser unit tests pass | Manual verification |
+| Desktop | Short selection encrypts to `sec:v1:` token | Pending | Command path requires interactive editor | Manual verification |
+| Desktop | Multi-line selection encrypts to `secure` block | Pending | Command path requires interactive editor | Manual verification |
+| Desktop | Context menu encrypts non-empty selection | Pending | Command path requires interactive editor | Manual verification |
+| Desktop | Empty selection opens text/clipboard modal | Pending | Command path requires interactive editor | Manual verification |
 
 ## Reading mode
 
