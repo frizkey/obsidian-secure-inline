@@ -113,6 +113,23 @@ export async function encryptToArmoredWithPassphrase(
   return age.armor.encode(ciphertext);
 }
 
+export async function decryptInlineTokenWithPassphrase(
+  token: string,
+  passphrase: string,
+): Promise<string> {
+  if (!token.startsWith(INLINE_TOKEN_PREFIX)) {
+    throw new Error("invalid secure token");
+  }
+  const ciphertext = decodeBase64Url(token.slice(INLINE_TOKEN_PREFIX.length));
+  try {
+    const decrypter = new age.Decrypter();
+    decrypter.addPassphrase(passphrase);
+    return await decrypter.decrypt(ciphertext, "text");
+  } catch {
+    throw new Error("passphrase required or incorrect");
+  }
+}
+
 export async function decryptArmoredWithPassphrase(
   armored: string,
   passphrase: string,

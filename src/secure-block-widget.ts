@@ -1,57 +1,8 @@
 import { Notice } from "obsidian";
 
-import {
-  decryptArmored,
-  decryptArmoredWithPassphrase,
-} from "./crypto";
+import { copyPlaintext } from "./clipboard";
+import { decryptSecret } from "./decrypt";
 import type SecureInlinePlugin from "./main";
-import { promptForPassphrase } from "./passphrase-modal";
-
-async function decryptBlock(
-  plugin: SecureInlinePlugin,
-  armored: string,
-): Promise<string | null> {
-  const material = await plugin.refreshKeyMaterial();
-  for (const warning of material.warnings) {
-    new Notice(warning);
-  }
-
-  try {
-    return await decryptArmored(armored, material.identities);
-  } catch (error) {
-    if (
-      !(error instanceof Error) ||
-      error.message !== "no matching identity"
-    ) {
-      throw error;
-    }
-    const passphrase = await promptForPassphrase(plugin.app);
-    if (!passphrase) {
-      return null;
-    }
-    return decryptArmoredWithPassphrase(armored, passphrase);
-  }
-}
-
-function scheduleClipboardClear(
-  plugin: SecureInlinePlugin,
-  plaintext: string,
-): void {
-  const seconds = plugin.settings.clipboardClearSeconds;
-  if (seconds <= 0) {
-    return;
-  }
-  window.setTimeout(() => {
-    void navigator.clipboard
-      .readText()
-      .then(async (current) => {
-        if (current === plaintext) {
-          await navigator.clipboard.writeText("");
-        }
-      })
-      .catch(() => undefined);
-  }, seconds * 1000);
-}
 
 function renderBlock(
   plugin: SecureInlinePlugin,
@@ -73,7 +24,7 @@ function renderBlock(
     });
     button.addEventListener("click", () => {
       button.disabled = true;
-      void decryptBlock(plugin, armored)
+      void decryptSecret(plugin, armored, "armored")
         .then((plaintext) => {
           if (plaintext !== null) {
             renderPlaintext(plaintext);
@@ -101,12 +52,8 @@ function renderBlock(
       attr: { type: "button" },
     });
     copy.addEventListener("click", () => {
-      void navigator.clipboard
-        .writeText(plaintext)
-        .then(() => {
-          scheduleClipboardClear(plugin, plaintext);
-          new Notice("Plaintext copied");
-        })
+      void copyPlaintext(plugin, plaintext)
+        .then(() => new Notice("Plaintext copied"))
         .catch(() => new Notice("Clipboard unavailable"));
     });
     const relock = controls.createEl("button", {
