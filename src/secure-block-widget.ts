@@ -4,7 +4,7 @@ import { copyPlaintext } from "./clipboard";
 import { decryptSecret } from "./decrypt";
 import type SecureInlinePlugin from "./main";
 
-function renderBlock(
+export function renderSecureBlock(
   plugin: SecureInlinePlugin,
   armored: string,
   el: HTMLElement,
@@ -77,7 +77,7 @@ export function registerSecureBlockProcessor(
   plugin: SecureInlinePlugin,
 ): void {
   const processor = (source: string, el: HTMLElement): void => {
-    renderBlock(plugin, source.trim(), el);
+    renderSecureBlock(plugin, source.trim(), el);
   };
   plugin.registerMarkdownCodeBlockProcessor("secure", processor);
   plugin.registerMarkdownCodeBlockProcessor("age", processor);

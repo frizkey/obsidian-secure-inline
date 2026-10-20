@@ -32,10 +32,11 @@ function isEligibleTextNode(node: Node): boolean {
   );
 }
 
-function attachTokenBehavior(
+export function attachTokenBehavior(
   plugin: SecureInlinePlugin,
   span: HTMLElement,
   token: string,
+  lockedText = token,
 ): void {
   let relockTimer: number | null = null;
   const lock = (): void => {
@@ -44,7 +45,7 @@ function attachTokenBehavior(
       relockTimer = null;
     }
     span.empty();
-    span.setText(token);
+    span.setText(lockedText);
     span.removeClass("secure-inline-revealed");
   };
 

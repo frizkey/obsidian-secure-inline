@@ -3,6 +3,7 @@ import { Plugin } from "obsidian";
 import { registerCommands } from "./commands";
 import { registerInlineProcessor } from "./inline-widget";
 import { loadKeyMaterial, type KeyMaterial } from "./keys";
+import { registerLivePreview } from "./live-preview";
 import { registerSecureBlockProcessor } from "./secure-block-widget";
 import { SecureInlineSettingTab } from "./settings-tab";
 import { DEFAULT_SETTINGS, type SecureInlineSettings } from "./settings";
@@ -20,6 +21,7 @@ export default class SecureInlinePlugin extends Plugin {
     registerCommands(this);
     registerSecureBlockProcessor(this);
     registerInlineProcessor(this);
+    registerLivePreview(this);
     this.addSettingTab(new SecureInlineSettingTab(this.app, this));
   }
 

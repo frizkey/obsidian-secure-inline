@@ -6,6 +6,7 @@ const production = process.argv[2] === "production";
 const external = [
   "obsidian",
   "electron",
+  "@codemirror/*",
   ...builtinModules,
   ...builtinModules.map((name) => `node:${name}`),
 ];
