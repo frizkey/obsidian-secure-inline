@@ -108,25 +108,24 @@ age -d -i ~/.config/age/keys.txt secret.age
 
 Inline tokens are raw age ciphertext encoded as unpadded base64url, not armor. Decode the base64url payload before passing it to `age -d` if you need CLI access to an inline token.
 
-## Install for development
+## Manual install
 
 From this repository:
 
 ```bash
 npm install
-npm run build
+npm run install:local -- "/path/to/vault"
 ```
 
-Then link or copy the plugin into a test vault:
+The installer builds `main.js` and copies `main.js`, `manifest.json`, and `styles.css` into `/path/to/vault/.obsidian/plugins/secure-inline/`. Restart Obsidian or reload plugins, then enable **Secure Inline (age)** in community plugin settings.
+
+For development symlinks instead of copies:
 
 ```bash
-mkdir -p "/path/to/vault/.obsidian/plugins/secure-inline"
-ln -s "$PWD/main.js" "/path/to/vault/.obsidian/plugins/secure-inline/main.js"
-ln -s "$PWD/manifest.json" "/path/to/vault/.obsidian/plugins/secure-inline/manifest.json"
-ln -s "$PWD/styles.css" "/path/to/vault/.obsidian/plugins/secure-inline/styles.css"
+npm run install:local -- "/path/to/vault" --link
 ```
 
-Enable **Secure Inline (age)** in Obsidian community plugin settings. For BRAT-based testing, install this repository as a custom beta plugin after pushing it to a git remote.
+For Android, run the installer against the synced vault directory before opening it in Obsidian mobile, or use a shell with Node.js on the device.
 
 ## Security boundary
 
