@@ -56,7 +56,7 @@ Use disposable values only. Do not record private identities or decrypted produc
 
 | Area | Check | Result | Evidence | Follow-up |
 |------|-------|--------|----------|-----------|
-| Defects | No release-blocking defects confirmed | Pending | Awaiting manual verification | Manual verification |
+| Defects | No release-blocking defects confirmed | Pending | No interactive manual checks completed; no defect entries opened | Manual verification |
 
 ## Release
 
