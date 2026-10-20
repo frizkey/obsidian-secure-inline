@@ -1,5 +1,6 @@
 import { Plugin } from "obsidian";
 
+import { registerCommands } from "./commands";
 import { loadKeyMaterial, type KeyMaterial } from "./keys";
 import { SecureInlineSettingTab } from "./settings-tab";
 import { DEFAULT_SETTINGS, type SecureInlineSettings } from "./settings";
@@ -14,6 +15,7 @@ export default class SecureInlinePlugin extends Plugin {
 
   async onload(): Promise<void> {
     await this.loadSettings();
+    registerCommands(this);
     this.addSettingTab(new SecureInlineSettingTab(this.app, this));
   }
 
