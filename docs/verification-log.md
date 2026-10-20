@@ -47,10 +47,10 @@ Use disposable values only. Do not record private identities or decrypted produc
 
 | Area | Check | Result | Evidence | Follow-up |
 |------|-------|--------|----------|-----------|
-| Mobile | Device identity can be generated | Pending | Requires Android Obsidian session | Manual verification |
-| Mobile | Private identity absent from `data.json` | Pending | Requires Android Obsidian session | Manual verification |
-| Mobile | Mobile recipient decrypts desktop-created secret | Pending | Requires Android Obsidian session | Manual verification |
-| Mobile | Passphrase fallback works | Pending | Requires Android Obsidian session | Manual verification |
+| Mobile | Device identity can be generated | Pending | Android Obsidian unavailable in CLI | Manual verification |
+| Mobile | Private identity absent from `data.json` | Pending | Android Obsidian unavailable in CLI | Manual verification |
+| Mobile | Mobile recipient decrypts desktop-created secret | Pending | Android Obsidian unavailable in CLI | Manual verification |
+| Mobile | Passphrase fallback works | Pending | Android Obsidian unavailable in CLI | Manual verification |
 
 ## Defects
 
