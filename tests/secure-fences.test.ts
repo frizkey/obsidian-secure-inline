@@ -41,6 +41,16 @@ describe("scanSecureFences", () => {
     expect(fences[1].content).toBe("plain");
   });
 
+  it("recognizes secure-properties fences separately", () => {
+    const [fence] = scanSecureFences(
+      "~~~secure-properties\napi_key: secret\n~~~",
+    );
+
+    expect(fence.kind).toBe("secure-properties");
+    expect(fence.content).toBe("api_key: secret");
+    expect(fence.isArmored).toBe(false);
+  });
+
   it("finds multiple blocks and ignores non-secure fences", () => {
     const fences = scanSecureFences(
       "```ts\nsec:v1:not-here\n```\n```secure\none\n```\n```age\ntwo\n```",

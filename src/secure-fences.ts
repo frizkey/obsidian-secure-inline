@@ -1,14 +1,18 @@
+export type SecureFenceKind = "secure" | "age" | "secure-properties";
+
 export interface SecureFenceRange {
   from: number;
   to: number;
   contentFrom: number;
   contentTo: number;
   content: string;
+  kind: SecureFenceKind;
   isArmored: boolean;
 }
 
 const FENCE_OPENING_RE = /^(`{3,}|~{3,})/;
-const SECURE_OPENING_RE = /^(`{3,}|~{3,})(secure|age)\s*$/;
+const SECURE_OPENING_RE =
+  /^(`{3,}|~{3,})(secure-properties|secure|age)\s*$/;
 const ARMOR_START = "-----BEGIN AGE ENCRYPTED FILE-----";
 
 interface ClosingLineRange {
@@ -104,13 +108,17 @@ export function scanSecureFences(text: string): SecureFenceRange[] {
       closing.from - previousLineBreakLength(text, closing.from),
     );
     const content = text.slice(contentFrom, contentTo);
+    const kind = secureOpening[2] as SecureFenceKind;
     fences.push({
       from: lineStart,
       to: closing.to,
       contentFrom,
       contentTo,
       content,
-      isArmored: content.trim().startsWith(ARMOR_START),
+      kind,
+      isArmored:
+        kind !== "secure-properties" &&
+        content.trim().startsWith(ARMOR_START),
     });
     lineStart = nextLineStart(text, closing.to);
   }

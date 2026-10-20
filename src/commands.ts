@@ -13,6 +13,10 @@ import {
   loadEncryptionRecipients,
 } from "./pending-encrypt";
 import { scanSecureFences } from "./secure-fences";
+import {
+  encryptSecurePropertiesContent,
+  hasPendingSecureProperties,
+} from "./secure-properties";
 
 async function encryptSelection(
   plugin: SecureInlinePlugin,
@@ -60,10 +64,23 @@ async function encryptPendingBlocks(
   plugin: SecureInlinePlugin,
   editor: Editor,
 ): Promise<void> {
-  const pending = scanSecureFences(editor.getValue())
-    .filter((fence) => !fence.isArmored && fence.content.trim())
+  const fences = scanSecureFences(editor.getValue());
+  const pendingBlocks = fences
+    .filter(
+      (fence) =>
+        fence.kind !== "secure-properties" &&
+        !fence.isArmored &&
+        fence.content.trim(),
+    )
     .sort((a, b) => b.from - a.from);
-  if (pending.length === 0) {
+  const pendingProperties = fences
+    .filter(
+      (fence) =>
+        fence.kind === "secure-properties" &&
+        hasPendingSecureProperties(fence.content),
+    )
+    .sort((a, b) => b.from - a.from);
+  if (pendingBlocks.length === 0 && pendingProperties.length === 0) {
     new Notice("No pending secure blocks");
     return;
   }
@@ -72,8 +89,8 @@ async function encryptPendingBlocks(
     return;
   }
 
-  let encrypted = 0;
-  for (const block of pending) {
+  let encryptedBlocks = 0;
+  for (const block of pendingBlocks) {
     const current = editor.getValue();
     if (current.slice(block.contentFrom, block.contentTo) !== block.content) {
       new Notice("Secure block changed; skipped");
@@ -96,10 +113,60 @@ async function encryptPendingBlocks(
       editor.offsetToPos(block.contentFrom),
       editor.offsetToPos(block.contentTo),
     );
-    encrypted += 1;
+    encryptedBlocks += 1;
   }
-  if (encrypted > 0) {
-    new Notice(`Encrypted ${encrypted} secure block${encrypted === 1 ? "" : "s"}`);
+
+  let encryptedValues = 0;
+  let failedValues = 0;
+  for (const fence of pendingProperties) {
+    const current = editor.getValue();
+    if (current.slice(fence.contentFrom, fence.contentTo) !== fence.content) {
+      new Notice("Secure properties changed; skipped");
+      continue;
+    }
+    const result = await encryptSecurePropertiesContent(
+      fence.content,
+      (value) => encryptToInlineToken(value, recipients),
+    );
+    failedValues += result.failed;
+    if (result.encrypted === 0) {
+      continue;
+    }
+    const latest = editor.getValue();
+    if (latest.slice(fence.contentFrom, fence.contentTo) !== fence.content) {
+      new Notice("Secure properties changed; skipped");
+      continue;
+    }
+    editor.replaceRange(
+      result.content,
+      editor.offsetToPos(fence.contentFrom),
+      editor.offsetToPos(fence.contentTo),
+    );
+    encryptedValues += result.encrypted;
+  }
+
+  const encryptedParts: string[] = [];
+  if (encryptedBlocks > 0) {
+    encryptedParts.push(
+      `${encryptedBlocks} secure block${encryptedBlocks === 1 ? "" : "s"}`,
+    );
+  }
+  if (encryptedValues > 0) {
+    encryptedParts.push(
+      `${encryptedValues} secure property value${
+        encryptedValues === 1 ? "" : "s"
+      }`,
+    );
+  }
+  if (encryptedParts.length > 0) {
+    new Notice(`Encrypted ${encryptedParts.join(" and ")}`);
+  }
+  if (failedValues > 0) {
+    new Notice(
+      `Skipped ${failedValues} secure property value${
+        failedValues === 1 ? "" : "s"
+      }`,
+    );
   }
 }
 

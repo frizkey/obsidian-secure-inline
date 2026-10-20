@@ -18,6 +18,7 @@ import { attachTokenBehavior, LOCKED_LABEL } from "./inline-widget";
 import type SecureInlinePlugin from "./main";
 import { renderSecureBlock } from "./secure-block-widget";
 import { scanSecureFences } from "./secure-fences";
+import { renderSecureProperties } from "./secure-properties-widget";
 
 function selectionIntersects(
   state: EditorState,
@@ -89,11 +90,38 @@ class SecureBlockWidget extends WidgetType {
   }
 }
 
+class SecurePropertiesWidget extends WidgetType {
+  constructor(
+    private plugin: SecureInlinePlugin,
+    private content: string,
+    private revealAll: boolean,
+  ) {
+    super();
+  }
+
+  eq(other: SecurePropertiesWidget): boolean {
+    return (
+      other.content === this.content && other.revealAll === this.revealAll
+    );
+  }
+
+  toDOM(): HTMLElement {
+    const el = document.createElement("div");
+    renderSecureProperties(this.plugin, this.content, el);
+    return el;
+  }
+
+  ignoreEvent(): boolean {
+    return false;
+  }
+}
+
 function buildInlineDecorations(
   view: EditorView,
   plugin: SecureInlinePlugin,
 ): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
+  const secureFences = scanSecureFences(view.state.doc.toString());
   for (const range of view.visibleRanges) {
     const text = view.state.doc.sliceString(range.from, range.to);
     INLINE_TOKEN_RE.lastIndex = 0;
@@ -101,6 +129,13 @@ function buildInlineDecorations(
       const index = match.index ?? 0;
       const from = range.from + index;
       const to = from + match[0].length;
+      if (
+        secureFences.some(
+          (fence) => from >= fence.from && to <= fence.to,
+        )
+      ) {
+        continue;
+      }
       const focused = selectionIntersects(view.state, from, to);
       if (focused && !plugin.settings.inlineRevealOnFocus) {
         continue;
@@ -128,7 +163,25 @@ function buildBlockDecorations(
 ): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   for (const fence of scanSecureFences(state.doc.toString())) {
-    if (!fence.isArmored || selectionIntersects(state, fence.from, fence.to)) {
+    if (selectionIntersects(state, fence.from, fence.to)) {
+      continue;
+    }
+    if (fence.kind === "secure-properties") {
+      builder.add(
+        fence.from,
+        fence.to,
+        Decoration.replace({
+          block: true,
+          widget: new SecurePropertiesWidget(
+            plugin,
+            fence.content,
+            plugin.revealAll,
+          ),
+        }),
+      );
+      continue;
+    }
+    if (!fence.isArmored) {
       continue;
     }
     builder.add(
