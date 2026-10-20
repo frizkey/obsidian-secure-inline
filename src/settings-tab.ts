@@ -124,6 +124,18 @@ export class SecureInlineSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName("Reveal inline tokens on focus")
+      .setDesc("Display sec:v1:<plaintext> while the cursor is inside an inline token. The note still stores ciphertext.")
+      .addToggle((toggle) =>
+        toggle
+          .setValue(settings.inlineRevealOnFocus)
+          .onChange(async (value) => {
+            settings.inlineRevealOnFocus = value;
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
       .setName("Inline token limit")
       .setDesc("Single-line selections up to this length use compact sec:v1 tokens.")
       .addText((text) =>

@@ -92,7 +92,8 @@ Add one `age1...` recipient per line in settings. These recipients are merged wi
 
 - In Reading mode, click a `secure`/`age` block to reveal it.
 - In Reading mode or Live Preview, click a `sec:v1:` token to reveal it.
-- Ctrl/Cmd-click an inline token to copy plaintext without revealing it in the editor.
+- With **Reveal inline tokens on focus** enabled, placing the cursor inside a Live Preview token displays `sec:v1:<plaintext>` without changing the file.
+- Ctrl/Cmd-click an inline token to copy plaintext and reveal it.
 - Click **Copy** to copy revealed block plaintext.
 - Click **Relock** to hide plaintext. If auto-relock seconds is nonzero, plaintext hides automatically.
 - If no configured identity matches, the plugin prompts for a passphrase and retries passphrase decryption.

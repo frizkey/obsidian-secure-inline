@@ -32,11 +32,17 @@ function isEligibleTextNode(node: Node): boolean {
   );
 }
 
+interface TokenBehaviorOptions {
+  revealOnAttach?: boolean;
+  revealedPrefix?: string;
+}
+
 export function attachTokenBehavior(
   plugin: SecureInlinePlugin,
   span: HTMLElement,
   token: string,
   lockedText = token,
+  options: TokenBehaviorOptions = {},
 ): void {
   let relockTimer: number | null = null;
   const lock = (): void => {
@@ -49,18 +55,49 @@ export function attachTokenBehavior(
     span.removeClass("secure-inline-revealed");
   };
 
+  const showPlaintext = (plaintext: string): void => {
+    if (relockTimer !== null) {
+      window.clearTimeout(relockTimer);
+      relockTimer = null;
+    }
+    span.empty();
+    span.setText(`${options.revealedPrefix ?? ""}${plaintext}`);
+    span.addClass("secure-inline-revealed");
+    if (plugin.settings.revealSeconds > 0) {
+      relockTimer = window.setTimeout(
+        lock,
+        plugin.settings.revealSeconds * 1000,
+      );
+    }
+  };
+
+  const reveal = async (): Promise<void> => {
+    try {
+      const plaintext = await decryptSecret(plugin, token, "inline");
+      if (plaintext !== null) {
+        showPlaintext(plaintext);
+      }
+    } catch (error) {
+      new Notice(error instanceof Error ? error.message : "decrypt failed");
+    }
+  };
+
   span.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
     if (event.ctrlKey || event.metaKey) {
       void decryptSecret(plugin, token, "inline")
-        .then((plaintext) => {
+        .then(async (plaintext) => {
           if (plaintext === null) {
             return;
           }
-          return copyPlaintext(plugin, plaintext).then(
-            () => new Notice("Plaintext copied"),
-          );
+          try {
+            await copyPlaintext(plugin, plaintext);
+            new Notice("Plaintext copied");
+          } catch {
+            new Notice("Clipboard unavailable");
+          }
+          showPlaintext(plaintext);
         })
         .catch((error: unknown) => {
           new Notice(
@@ -72,25 +109,12 @@ export function attachTokenBehavior(
     if (span.hasClass("secure-inline-revealed")) {
       return;
     }
-    void decryptSecret(plugin, token, "inline")
-      .then((plaintext) => {
-        if (plaintext === null) {
-          return;
-        }
-        span.empty();
-        span.setText(plaintext);
-        span.addClass("secure-inline-revealed");
-        if (plugin.settings.revealSeconds > 0) {
-          relockTimer = window.setTimeout(
-            lock,
-            plugin.settings.revealSeconds * 1000,
-          );
-        }
-      })
-      .catch((error: unknown) => {
-        new Notice(error instanceof Error ? error.message : "decrypt failed");
-      });
+    void reveal();
   });
+
+  if (options.revealOnAttach) {
+    void reveal();
+  }
 }
 
 export function registerInlineProcessor(

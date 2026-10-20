@@ -33,19 +33,26 @@ class SecureTokenWidget extends WidgetType {
   constructor(
     private plugin: SecureInlinePlugin,
     private token: string,
+    private revealOnFocus: boolean,
   ) {
     super();
   }
 
   eq(other: SecureTokenWidget): boolean {
-    return other.token === this.token;
+    return (
+      other.token === this.token &&
+      other.revealOnFocus === this.revealOnFocus
+    );
   }
 
   toDOM(): HTMLElement {
     const span = document.createElement("span");
     span.addClass("secure-inline", "secure-inline-live");
     span.setText("Secure");
-    attachTokenBehavior(this.plugin, span, this.token, "Secure");
+    attachTokenBehavior(this.plugin, span, this.token, "Secure", {
+      revealOnAttach: this.revealOnFocus,
+      revealedPrefix: "sec:v1:",
+    });
     return span;
   }
 
@@ -90,14 +97,19 @@ function buildInlineDecorations(
       const index = match.index ?? 0;
       const from = range.from + index;
       const to = from + match[0].length;
-      if (selectionIntersects(view.state, from, to)) {
+      const focused = selectionIntersects(view.state, from, to);
+      if (focused && !plugin.settings.inlineRevealOnFocus) {
         continue;
       }
       builder.add(
         from,
         to,
         Decoration.replace({
-          widget: new SecureTokenWidget(plugin, match[0]),
+          widget: new SecureTokenWidget(
+            plugin,
+            match[0],
+            focused && plugin.settings.inlineRevealOnFocus,
+          ),
         }),
       );
     }
