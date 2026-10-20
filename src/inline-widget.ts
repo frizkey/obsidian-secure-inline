@@ -4,6 +4,10 @@ import { INLINE_TOKEN_RE } from "./block";
 import { copyPlaintext } from "./clipboard";
 import { decryptSecret } from "./decrypt";
 import type SecureInlinePlugin from "./main";
+import {
+  renderActionButtonContent,
+  renderLockedButtonContent,
+} from "./secure-ui";
 
 function tokenize(text: string): (string | { token: string })[] {
   INLINE_TOKEN_RE.lastIndex = 0;
@@ -32,7 +36,7 @@ function isEligibleTextNode(node: Node): boolean {
   );
 }
 
-export const LOCKED_LABEL = "Secure — click to reveal";
+export const LOCKED_LABEL = "Secure";
 
 interface TokenBehaviorOptions {
   revealOnAttach?: boolean;
@@ -56,15 +60,15 @@ export function attachTokenBehavior(
     span.empty();
     span.removeClass("secure-inline-revealed");
     span.tabIndex = -1;
-    span.createEl("button", {
+    const button = span.createEl("button", {
       cls: "secure-inline-pill",
-      text: lockedText,
       attr: {
         type: "button",
         "aria-label": "Secure, click to reveal",
         title: "Click to reveal. Ctrl/Cmd-click to copy and reveal.",
       },
     });
+    renderLockedButtonContent(button, lockedText);
   };
 
   const showPlaintext = (plaintext: string): void => {
@@ -79,16 +83,22 @@ export function attachTokenBehavior(
     span.removeAttribute("title");
     span.tabIndex = -1;
 
+    if (options.revealedPrefix) {
+      span.createSpan({
+        text: options.revealedPrefix,
+        cls: "secure-inline-prefix",
+      });
+    }
     span.createSpan({
-      text: `${options.revealedPrefix ?? ""}${plaintext}`,
+      text: plaintext,
       cls: "secure-inline-value",
     });
     const controls = span.createSpan({ cls: "secure-inline-inline-controls" });
     const copy = controls.createEl("button", {
-      text: "Copy",
       cls: "secure-inline-copy",
-      attr: { type: "button" },
+      attr: { type: "button", title: "Copy plaintext" },
     });
+    renderActionButtonContent(copy, "Copy", "copy");
     copy.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -97,10 +107,10 @@ export function attachTokenBehavior(
         .catch(() => new Notice("Clipboard unavailable"));
     });
     const relock = controls.createEl("button", {
-      text: "Relock",
       cls: "secure-inline-relock",
-      attr: { type: "button" },
+      attr: { type: "button", title: "Relock value" },
     });
+    renderActionButtonContent(relock, "Relock", "lock");
     relock.addEventListener("click", (event) => {
       event.preventDefault();
       event.stopPropagation();
