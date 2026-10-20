@@ -134,6 +134,7 @@ For Android, run the installer against the synced vault directory before opening
 - Generated device identities are stored through Obsidian SecretStorage, not plugin settings.
 - Decrypted plaintext appears only in the reveal DOM and in the clipboard after explicit user action.
 - Clipboard managers, sync tools, screenshots, and Obsidian's own editor history can still expose revealed or copied plaintext.
+- Copying editor source preserves ciphertext. Copying or exporting rendered output can include revealed plaintext, and a locked rendered block does not contain its armor source.
 - Clipboard clearing is optional and only clears the clipboard if it still contains the same plaintext.
 - Plaintext typed inside a `secure`/`age` fence can remain in the note until the cursor leaves the block or the sweep command runs.
 
