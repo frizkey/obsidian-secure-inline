@@ -26,11 +26,11 @@ Use disposable values only. Do not record private identities or decrypted produc
 
 | Area | Check | Result | Evidence | Follow-up |
 |------|-------|--------|----------|-----------|
-| Reading mode | Secure block reveals plaintext | Pending | Requires interactive Obsidian session | Manual verification |
-| Reading mode | Copy copies plaintext | Pending | Requires interactive Obsidian session | Manual verification |
-| Reading mode | Relock hides plaintext | Pending | Requires interactive Obsidian session | Manual verification |
-| Reading mode | Auto-relock hides plaintext | Pending | Requires interactive Obsidian session | Manual verification |
-| Reading mode | Passphrase fallback unlocks scrypt block | Pending | Requires interactive Obsidian session | Manual verification |
+| Reading mode | Secure block reveals plaintext | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
+| Reading mode | Copy copies plaintext | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
+| Reading mode | Relock hides plaintext | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
+| Reading mode | Auto-relock hides plaintext | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
+| Reading mode | Passphrase fallback unlocks scrypt block | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
 
 ## Live Preview
 
