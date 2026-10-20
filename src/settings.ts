@@ -5,6 +5,7 @@ export interface SecureInlineSettings {
   revealSeconds: number;
   inlineTokenMaxChars: number;
   clipboardClearSeconds: number;
+  autoEncryptPlaintextBlocks: boolean;
 }
 
 export const DEFAULT_SETTINGS: SecureInlineSettings = {
@@ -14,4 +15,5 @@ export const DEFAULT_SETTINGS: SecureInlineSettings = {
   revealSeconds: 30,
   inlineTokenMaxChars: 80,
   clipboardClearSeconds: 0,
+  autoEncryptPlaintextBlocks: true,
 };

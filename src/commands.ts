@@ -8,6 +8,11 @@ import {
 } from "./crypto";
 import type SecureInlinePlugin from "./main";
 import { promptForPassphrase, promptForPlaintext } from "./passphrase-modal";
+import {
+  encryptPendingPlaintext,
+  loadEncryptionRecipients,
+} from "./pending-encrypt";
+import { scanSecureFences } from "./secure-fences";
 
 async function encryptSelection(
   plugin: SecureInlinePlugin,
@@ -51,6 +56,48 @@ async function encryptSelection(
   editor.replaceSelection(replacement);
 }
 
+async function encryptPendingBlocks(
+  plugin: SecureInlinePlugin,
+  editor: Editor,
+): Promise<void> {
+  const pending = scanSecureFences(editor.getValue())
+    .filter((fence) => !fence.isArmored && fence.content.trim())
+    .sort((a, b) => b.from - a.from);
+  if (pending.length === 0) {
+    new Notice("No pending secure blocks");
+    return;
+  }
+  const recipients = await loadEncryptionRecipients(plugin);
+  if (!recipients) {
+    return;
+  }
+
+  let encrypted = 0;
+  for (const block of pending) {
+    const current = editor.getValue();
+    if (current.slice(block.contentFrom, block.contentTo) !== block.content) {
+      new Notice("Secure block changed; skipped");
+      continue;
+    }
+    const armor = await encryptPendingPlaintext(
+      block.content.trim(),
+      recipients,
+    );
+    if (!armor) {
+      continue;
+    }
+    editor.replaceRange(
+      armor,
+      editor.offsetToPos(block.contentFrom),
+      editor.offsetToPos(block.contentTo),
+    );
+    encrypted += 1;
+  }
+  if (encrypted > 0) {
+    new Notice(`Encrypted ${encrypted} secure block${encrypted === 1 ? "" : "s"}`);
+  }
+}
+
 export function registerCommands(plugin: SecureInlinePlugin): void {
   plugin.addCommand({
     id: "secure-inline-encrypt-selection",
@@ -65,6 +112,14 @@ export function registerCommands(plugin: SecureInlinePlugin): void {
     name: "Encrypt selection with passphrase",
     editorCallback: (editor) => {
       void encryptSelection(plugin, editor, true);
+    },
+  });
+
+  plugin.addCommand({
+    id: "secure-inline-encrypt-pending-blocks",
+    name: "Encrypt plaintext secure blocks",
+    editorCallback: (editor) => {
+      void encryptPendingBlocks(plugin, editor);
     },
   });
 

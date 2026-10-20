@@ -1,5 +1,6 @@
 import { Plugin } from "obsidian";
 
+import { registerAutoEncrypt } from "./auto-encrypt";
 import { registerCommands } from "./commands";
 import { registerInlineProcessor } from "./inline-widget";
 import { loadKeyMaterial, type KeyMaterial } from "./keys";
@@ -22,6 +23,7 @@ export default class SecureInlinePlugin extends Plugin {
     registerSecureBlockProcessor(this);
     registerInlineProcessor(this);
     registerLivePreview(this);
+    registerAutoEncrypt(this);
     this.addSettingTab(new SecureInlineSettingTab(this.app, this));
   }
 

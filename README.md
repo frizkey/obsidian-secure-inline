@@ -10,6 +10,8 @@ Obsidian plugin for encrypting sensitive text directly inside notes with interop
 - Relock revealed plaintext manually or automatically after a timeout.
 - Copy decrypted plaintext without revealing it with Ctrl/Cmd-click on inline tokens.
 - Encrypt with an age passphrase when recipient keys are unavailable.
+- Auto-encrypt plaintext typed inside `secure`/`age` fences when the cursor leaves the block.
+- Sweep a note for pending plaintext secure blocks with an explicit command.
 - Read native age X25519 identities and recipients on desktop.
 - Store a generated mobile device identity in Obsidian SecretStorage.
 - Keep interoperability with the `age` CLI.
@@ -78,6 +80,14 @@ Add one `age1...` recipient per line in settings. These recipients are merged wi
 - With no selection, the command opens a modal that can encrypt typed text or clipboard contents.
 - Run **Secure Inline: Encrypt selection with passphrase** to use age's scrypt passphrase recipient instead of public keys.
 
+### Plaintext secure blocks
+
+- Type plaintext inside a `secure` or `age` fence.
+- With **Auto-encrypt plaintext secure blocks** enabled, moving the cursor outside the fence encrypts its contents in place.
+- Run **Secure Inline: Encrypt plaintext secure blocks** to encrypt every pending plaintext fence in the active note.
+- Empty fences and blocks already containing `-----BEGIN AGE ENCRYPTED FILE-----` are skipped.
+- If no recipients are configured or the block changes during encryption, plaintext is left untouched.
+
 ### Decrypt
 
 - In Reading mode, click a `secure`/`age` block to reveal it.
@@ -124,7 +134,7 @@ Enable **Secure Inline (age)** in Obsidian community plugin settings. For BRAT-b
 - Decrypted plaintext appears only in the reveal DOM and in the clipboard after explicit user action.
 - Clipboard managers, sync tools, screenshots, and Obsidian's own editor history can still expose revealed or copied plaintext.
 - Clipboard clearing is optional and only clears the clipboard if it still contains the same plaintext.
-- This plugin does not provide auto-encryption on save; encryption is always explicit.
+- Plaintext typed inside a `secure`/`age` fence can remain in the note until the cursor leaves the block or the sweep command runs.
 
 ## Development
 

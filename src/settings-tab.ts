@@ -99,6 +99,18 @@ export class SecureInlineSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
+      .setName("Auto-encrypt plaintext secure blocks")
+      .setDesc("Encrypt secure/age fences when the cursor leaves a block containing plaintext.")
+      .addToggle((toggle) =>
+        toggle
+          .setValue(settings.autoEncryptPlaintextBlocks)
+          .onChange(async (value) => {
+            settings.autoEncryptPlaintextBlocks = value;
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
       .setName("Auto-relock seconds")
       .setDesc("0 keeps plaintext visible until Relock.")
       .addText((text) =>

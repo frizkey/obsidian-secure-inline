@@ -17,6 +17,7 @@ import { INLINE_TOKEN_RE } from "./block";
 import { attachTokenBehavior } from "./inline-widget";
 import type SecureInlinePlugin from "./main";
 import { renderSecureBlock } from "./secure-block-widget";
+import { scanSecureFences } from "./secure-fences";
 
 function selectionIntersects(
   state: EditorState,
@@ -109,42 +110,16 @@ function buildBlockDecorations(
   plugin: SecureInlinePlugin,
 ): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
-  const doc = state.doc;
-  for (let lineNo = 1; lineNo <= doc.lines; lineNo += 1) {
-    const line = doc.line(lineNo);
-    const opening = line.text.match(/^(`{3,}|~{3,})(secure|age)\s*$/);
-    if (!opening) {
+  for (const fence of scanSecureFences(state.doc.toString())) {
+    if (!fence.isArmored || selectionIntersects(state, fence.from, fence.to)) {
       continue;
     }
-    const fence = opening[1];
-    const fenceChar = fence[0];
-    let closing = null;
-    for (let endLineNo = lineNo + 1; endLineNo <= doc.lines; endLineNo += 1) {
-      const endLine = doc.line(endLineNo);
-      const trimmed = endLine.text.trim();
-      if (
-        trimmed.length >= fence.length &&
-        trimmed.split("").every((char) => char === fenceChar)
-      ) {
-        closing = endLine;
-        lineNo = endLineNo;
-        break;
-      }
-    }
-    if (!closing) {
-      break;
-    }
-    if (selectionIntersects(state, line.from, closing.to)) {
-      continue;
-    }
-    const innerFrom = line.to + 1;
-    const armored = doc.sliceString(innerFrom, closing.from).trim();
     builder.add(
-      line.from,
-      closing.to,
+      fence.from,
+      fence.to,
       Decoration.replace({
         block: true,
-        widget: new SecureBlockWidget(plugin, armored),
+        widget: new SecureBlockWidget(plugin, fence.content.trim()),
       }),
     );
   }
