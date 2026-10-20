@@ -7,10 +7,20 @@ export interface SecureFenceRange {
   isArmored: boolean;
 }
 
-const OPENING_RE = /^(`{3,}|~{3,})(secure|age)\s*$/;
+const FENCE_OPENING_RE = /^(`{3,}|~{3,})/;
+const SECURE_OPENING_RE = /^(`{3,}|~{3,})(secure|age)\s*$/;
 const ARMOR_START = "-----BEGIN AGE ENCRYPTED FILE-----";
 
-function isClosingLine(text: string, fenceChar: string, minLength: number): boolean {
+interface ClosingLineRange {
+  from: number;
+  to: number;
+}
+
+function isClosingLine(
+  text: string,
+  fenceChar: string,
+  minLength: number,
+): boolean {
   const trimmed = text.trim();
   return (
     trimmed.length >= minLength &&
@@ -32,6 +42,28 @@ function previousLineBreakLength(text: string, lineStart: number): number {
   return lineStart >= 2 && text[lineStart - 2] === "\r" ? 2 : 1;
 }
 
+function findClosingLine(
+  text: string,
+  cursor: number,
+  fenceChar: string,
+  minLength: number,
+): ClosingLineRange | null {
+  while (cursor <= text.length) {
+    let end = text.indexOf("\n", cursor);
+    if (end === -1) {
+      end = text.length;
+    }
+    if (isClosingLine(text.slice(cursor, end), fenceChar, minLength)) {
+      return { from: cursor, to: end };
+    }
+    if (end === text.length) {
+      break;
+    }
+    cursor = nextLineStart(text, end);
+  }
+  return null;
+}
+
 export function scanSecureFences(text: string): SecureFenceRange[] {
   const fences: SecureFenceRange[] = [];
   let lineStart = 0;
@@ -42,54 +74,45 @@ export function scanSecureFences(text: string): SecureFenceRange[] {
       lineEnd = text.length;
     }
     const line = text.slice(lineStart, lineEnd);
-    const opening = line.match(OPENING_RE);
+    const opening = line.match(FENCE_OPENING_RE);
     if (!opening) {
       lineStart = nextLineStart(text, lineEnd);
       continue;
     }
 
+    const secureOpening = line.match(SECURE_OPENING_RE);
     const fence = opening[1];
     const fenceChar = fence[0];
     const contentFrom = nextLineStart(text, lineEnd);
-    let closingStart = -1;
-    let closingEnd = -1;
-    let cursor = contentFrom;
-
-    while (cursor <= text.length) {
-      let end = text.indexOf("\n", cursor);
-      if (end === -1) {
-        end = text.length;
-      }
-      const closingLine = text.slice(cursor, end);
-      if (isClosingLine(closingLine, fenceChar, fence.length)) {
-        closingStart = cursor;
-        closingEnd = end;
-        break;
-      }
-      if (end === text.length) {
-        break;
-      }
-      cursor = nextLineStart(text, end);
+    const closing = findClosingLine(
+      text,
+      contentFrom,
+      fenceChar,
+      fence.length,
+    );
+    if (!closing) {
+      break;
     }
 
-    if (closingStart === -1) {
-      break;
+    if (!secureOpening) {
+      lineStart = nextLineStart(text, closing.to);
+      continue;
     }
 
     const contentTo = Math.max(
       contentFrom,
-      closingStart - previousLineBreakLength(text, closingStart),
+      closing.from - previousLineBreakLength(text, closing.from),
     );
     const content = text.slice(contentFrom, contentTo);
     fences.push({
       from: lineStart,
-      to: closingEnd,
+      to: closing.to,
       contentFrom,
       contentTo,
       content,
       isArmored: content.trim().startsWith(ARMOR_START),
     });
-    lineStart = nextLineStart(text, closingEnd);
+    lineStart = nextLineStart(text, closing.to);
   }
 
   return fences;

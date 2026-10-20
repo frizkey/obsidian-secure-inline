@@ -36,27 +36,21 @@ function resolveCapturedFence(
 ): SecureFenceRange | null {
   const text = state.doc.toString();
   const fences = scanSecureFences(text);
-  const direct = fences.find(
-    (fence) =>
-      fence.from === captured.from &&
-      fence.to === captured.to &&
-      !fence.isArmored &&
-      fence.content === captured.content,
+  return (
+    fences.find(
+      (fence) =>
+        fence.from === captured.from &&
+        fence.to === captured.to &&
+        !fence.isArmored &&
+        fence.content === captured.content,
+    ) ?? null
   );
-  if (direct) {
-    return direct;
-  }
-  const matching = fences.filter(
-    (fence) => !fence.isArmored && fence.content === captured.content,
-  );
-  return matching.length === 1 ? matching[0] : null;
 }
 
 export function registerAutoEncrypt(plugin: SecureInlinePlugin): void {
   const extension = ViewPlugin.fromClass(
     class {
       private pending: SecureFenceRange | null = null;
-      private encrypting = false;
 
       constructor(view: EditorView) {
         const active = activeFence(view.state);
@@ -76,15 +70,11 @@ export function registerAutoEncrypt(plugin: SecureInlinePlugin): void {
 
         if (
           this.pending &&
-          !this.encrypting &&
           !selectionIntersects(update.state, this.pending.from, this.pending.to)
         ) {
           const captured = this.pending;
           this.pending = null;
-          this.encrypting = true;
-          void this.encryptCaptured(update.view, captured).finally(() => {
-            this.encrypting = false;
-          });
+          void this.encryptCaptured(update.view, captured);
         }
 
         const active = activeFence(update.state);

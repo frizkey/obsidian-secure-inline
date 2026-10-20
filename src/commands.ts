@@ -86,6 +86,11 @@ async function encryptPendingBlocks(
     if (!armor) {
       continue;
     }
+    const latest = editor.getValue();
+    if (latest.slice(block.contentFrom, block.contentTo) !== block.content) {
+      new Notice("Secure block changed; skipped");
+      continue;
+    }
     editor.replaceRange(
       armor,
       editor.offsetToPos(block.contentFrom),

@@ -8,7 +8,7 @@ Obsidian plugin for encrypting sensitive text directly inside notes with interop
 - Encrypt short single-line selections into compact `sec:v1:` inline tokens.
 - Click encrypted content in Reading mode or Live Preview to reveal it.
 - Relock revealed plaintext manually or automatically after a timeout.
-- Copy decrypted plaintext without revealing it with Ctrl/Cmd-click on inline tokens.
+- Copy and reveal plaintext with Ctrl/Cmd-click on inline tokens.
 - Encrypt with an age passphrase when recipient keys are unavailable.
 - Auto-encrypt plaintext typed inside `secure`/`age` fences when the cursor leaves the block.
 - Sweep a note for pending plaintext secure blocks with an explicit command.

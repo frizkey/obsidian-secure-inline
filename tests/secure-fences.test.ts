@@ -50,6 +50,15 @@ describe("scanSecureFences", () => {
     expect(fences.map((fence) => fence.content)).toEqual(["one", "two"]);
   });
 
+  it("ignores secure-looking lines inside non-secure fences", () => {
+    const fences = scanSecureFences(
+      "```ts\n```secure\nnot a secure fence\n```\nafter\n```secure\nreal\n```",
+    );
+
+    expect(fences).toHaveLength(1);
+    expect(fences[0].content).toBe("real");
+  });
+
   it("ignores unclosed fences", () => {
     expect(scanSecureFences("```secure\nnever closed")).toEqual([]);
   });
