@@ -54,16 +54,17 @@ export function attachTokenBehavior(
       relockTimer = null;
     }
     span.empty();
-    span.setText(lockedText);
     span.removeClass("secure-inline-revealed");
-    span.addClass("secure-inline-pill");
-    span.setAttribute("role", "button");
-    span.setAttribute("aria-label", "Secure, click to reveal");
-    span.setAttribute(
-      "title",
-      "Click to reveal. Ctrl/Cmd-click to copy and reveal.",
-    );
-    span.tabIndex = 0;
+    span.tabIndex = -1;
+    span.createEl("button", {
+      cls: "secure-inline-pill",
+      text: lockedText,
+      attr: {
+        type: "button",
+        "aria-label": "Secure, click to reveal",
+        title: "Click to reveal. Ctrl/Cmd-click to copy and reveal.",
+      },
+    });
   };
 
   const showPlaintext = (plaintext: string): void => {

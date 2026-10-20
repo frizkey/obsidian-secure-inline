@@ -1,3 +1,9 @@
+.secure-inline {
+  align-items: center;
+  display: inline-flex;
+  vertical-align: middle;
+}
+
 .secure-inline-pill {
   align-items: center;
   appearance: none;
@@ -10,6 +16,7 @@
   font-size: var(--font-ui-smaller);
   gap: 0.35rem;
   line-height: 1.4;
+  margin: 0;
   padding: 0.25rem 0.65rem;
   vertical-align: middle;
 }
