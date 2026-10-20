@@ -1,3 +1,73 @@
+.secure-inline-pill {
+  align-items: center;
+  appearance: none;
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 999px;
+  color: var(--text-normal);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: var(--font-ui-smaller);
+  gap: 0.35rem;
+  line-height: 1.4;
+  padding: 0.25rem 0.65rem;
+  vertical-align: middle;
+}
+
+.secure-inline-pill:hover {
+  background: var(--background-modifier-hover);
+  border-color: var(--background-modifier-border-hover);
+}
+
+.secure-inline-revealed {
+  align-items: center;
+  background: var(--background-primary-alt);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  display: inline-flex;
+  gap: 0.4rem;
+  max-width: 100%;
+  padding: 0.25rem 0.45rem;
+  vertical-align: middle;
+}
+
+.secure-inline-value {
+  font-family: var(--font-monospace);
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.secure-inline-inline-controls,
+.secure-inline-controls {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.secure-inline-inline-controls button,
+.secure-inline-controls button {
+  font-size: var(--font-ui-smaller);
+  padding: 0.15rem 0.45rem;
+}
+
+.secure-inline-block {
+  background: var(--background-primary-alt);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  margin: 0.5rem 0;
+  padding: 0.75rem;
+}
+
+.secure-inline-plaintext {
+  background: transparent;
+  border: 0;
+  font-family: var(--font-monospace);
+  margin: 0 0 0.6rem;
+  overflow-wrap: anywhere;
+  padding: 0;
+  white-space: pre-wrap;
+}
+
 .secure-inline-settings-intro {
   color: var(--text-muted);
   margin-bottom: 1.25rem;

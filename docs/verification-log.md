@@ -26,6 +26,8 @@ Use disposable values only. Do not record private identities or decrypted produc
 | Desktop | Pending plaintext `secure` block auto-encrypts on cursor leave | Pending | Interactive editor unavailable in CLI | Manual verification |
 | Desktop | Sweep command encrypts pending secure blocks | Pending | Command path requires interactive editor | Manual verification |
 | Desktop | Settings key health shows counts without secret material | Pending | Interactive settings unavailable in CLI | Manual verification |
+| Desktop | Editor context menu offers Reveal all secrets / Relock all secrets | Pending | Interactive editor unavailable in CLI | Manual verification |
+| Desktop | Toggle global reveal command reveals then relocks rendered secrets | Pending | Interactive editor unavailable in CLI | Manual verification |
 
 ## Reading mode
 
@@ -36,6 +38,8 @@ Use disposable values only. Do not record private identities or decrypted produc
 | Reading mode | Relock hides plaintext | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
 | Reading mode | Auto-relock hides plaintext | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
 | Reading mode | Passphrase fallback unlocks scrypt block | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
+| Reading mode | Revealed inline token exposes Copy and Relock controls | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
+| Reading mode | Locked inline token uses same pill styling as secure block | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
 
 ## Live Preview
 
@@ -47,6 +51,8 @@ Use disposable values only. Do not record private identities or decrypted produc
 | Live Preview | Cursor inside token displays `sec:v1:<plaintext>` without changing the file | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
 | Live Preview | Secure block displays locked widget | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
 | Live Preview | Cursor inside block restores source | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
+| Live Preview | Revealed inline token exposes Copy and Relock controls | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
+| Live Preview | Global reveal refreshes existing editor decorations | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
 
 ## Mobile
 

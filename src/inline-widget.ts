@@ -32,6 +32,8 @@ function isEligibleTextNode(node: Node): boolean {
   );
 }
 
+export const LOCKED_LABEL = "Secure — click to reveal";
+
 interface TokenBehaviorOptions {
   revealOnAttach?: boolean;
   revealedPrefix?: string;
@@ -45,6 +47,7 @@ export function attachTokenBehavior(
   options: TokenBehaviorOptions = {},
 ): void {
   let relockTimer: number | null = null;
+  let revealInFlight = false;
   const lock = (): void => {
     if (relockTimer !== null) {
       window.clearTimeout(relockTimer);
@@ -53,6 +56,14 @@ export function attachTokenBehavior(
     span.empty();
     span.setText(lockedText);
     span.removeClass("secure-inline-revealed");
+    span.addClass("secure-inline-pill");
+    span.setAttribute("role", "button");
+    span.setAttribute("aria-label", "Secure, click to reveal");
+    span.setAttribute(
+      "title",
+      "Click to reveal. Ctrl/Cmd-click to copy and reveal.",
+    );
+    span.tabIndex = 0;
   };
 
   const showPlaintext = (plaintext: string): void => {
@@ -61,9 +72,42 @@ export function attachTokenBehavior(
       relockTimer = null;
     }
     span.empty();
-    span.setText(`${options.revealedPrefix ?? ""}${plaintext}`);
+    span.removeClass("secure-inline-pill");
+    span.removeAttribute("role");
+    span.removeAttribute("aria-label");
+    span.removeAttribute("title");
+    span.tabIndex = -1;
+
+    span.createSpan({
+      text: `${options.revealedPrefix ?? ""}${plaintext}`,
+      cls: "secure-inline-value",
+    });
+    const controls = span.createSpan({ cls: "secure-inline-inline-controls" });
+    const copy = controls.createEl("button", {
+      text: "Copy",
+      cls: "secure-inline-copy",
+      attr: { type: "button" },
+    });
+    copy.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      void copyPlaintext(plugin, plaintext)
+        .then(() => new Notice("Plaintext copied"))
+        .catch(() => new Notice("Clipboard unavailable"));
+    });
+    const relock = controls.createEl("button", {
+      text: "Relock",
+      cls: "secure-inline-relock",
+      attr: { type: "button" },
+    });
+    relock.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      lock();
+    });
+
     span.addClass("secure-inline-revealed");
-    if (plugin.settings.revealSeconds > 0) {
+    if (!plugin.revealAll && plugin.settings.revealSeconds > 0) {
       relockTimer = window.setTimeout(
         lock,
         plugin.settings.revealSeconds * 1000,
@@ -71,48 +115,62 @@ export function attachTokenBehavior(
     }
   };
 
-  const reveal = async (): Promise<void> => {
+  const reveal = async (copyAfter = false): Promise<void> => {
+    if (revealInFlight) {
+      return;
+    }
+    revealInFlight = true;
+    const epoch = plugin.revealEpoch;
     try {
       const plaintext = await decryptSecret(plugin, token, "inline");
-      if (plaintext !== null) {
-        showPlaintext(plaintext);
+      if (epoch !== plugin.revealEpoch) {
+        lock();
+        if (plugin.revealAll) {
+          window.setTimeout(() => {
+            if (plugin.revealAll) {
+              span.click();
+            }
+          }, 0);
+        }
+        return;
       }
+      if (plaintext === null) {
+        return;
+      }
+      if (copyAfter) {
+        try {
+          await copyPlaintext(plugin, plaintext);
+          new Notice("Plaintext copied");
+        } catch {
+          new Notice("Clipboard unavailable");
+        }
+      }
+      showPlaintext(plaintext);
     } catch (error) {
       new Notice(error instanceof Error ? error.message : "decrypt failed");
+    } finally {
+      revealInFlight = false;
     }
   };
 
   span.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    if (event.ctrlKey || event.metaKey) {
-      void decryptSecret(plugin, token, "inline")
-        .then(async (plaintext) => {
-          if (plaintext === null) {
-            return;
-          }
-          try {
-            await copyPlaintext(plugin, plaintext);
-            new Notice("Plaintext copied");
-          } catch {
-            new Notice("Clipboard unavailable");
-          }
-          showPlaintext(plaintext);
-        })
-        .catch((error: unknown) => {
-          new Notice(
-            error instanceof Error ? error.message : "decrypt failed",
-          );
-        });
-      return;
-    }
     if (span.hasClass("secure-inline-revealed")) {
       return;
     }
-    void reveal();
+    void reveal(event.ctrlKey || event.metaKey);
+  });
+  span.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    event.preventDefault();
+    span.click();
   });
 
-  if (options.revealOnAttach) {
+  lock();
+  if (options.revealOnAttach || plugin.revealAll) {
     void reveal();
   }
 }
@@ -149,8 +207,7 @@ export function registerInlineProcessor(
         } else {
           const span = document.createElement("span");
           span.addClass("secure-inline");
-          span.setText(part.token);
-          attachTokenBehavior(plugin, span, part.token);
+          attachTokenBehavior(plugin, span, part.token, LOCKED_LABEL);
           fragment.appendChild(span);
         }
       }

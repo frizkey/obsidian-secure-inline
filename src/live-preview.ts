@@ -14,7 +14,7 @@ import {
 } from "@codemirror/view";
 
 import { INLINE_TOKEN_RE } from "./block";
-import { attachTokenBehavior } from "./inline-widget";
+import { attachTokenBehavior, LOCKED_LABEL } from "./inline-widget";
 import type SecureInlinePlugin from "./main";
 import { renderSecureBlock } from "./secure-block-widget";
 import { scanSecureFences } from "./secure-fences";
@@ -34,6 +34,7 @@ class SecureTokenWidget extends WidgetType {
     private plugin: SecureInlinePlugin,
     private token: string,
     private revealOnFocus: boolean,
+    private revealAll: boolean,
   ) {
     super();
   }
@@ -41,16 +42,16 @@ class SecureTokenWidget extends WidgetType {
   eq(other: SecureTokenWidget): boolean {
     return (
       other.token === this.token &&
-      other.revealOnFocus === this.revealOnFocus
+      other.revealOnFocus === this.revealOnFocus &&
+      other.revealAll === this.revealAll
     );
   }
 
   toDOM(): HTMLElement {
     const span = document.createElement("span");
     span.addClass("secure-inline", "secure-inline-live");
-    span.setText("Secure");
-    attachTokenBehavior(this.plugin, span, this.token, "Secure", {
-      revealOnAttach: this.revealOnFocus,
+    attachTokenBehavior(this.plugin, span, this.token, LOCKED_LABEL, {
+      revealOnAttach: this.revealOnFocus || this.plugin.revealAll,
       revealedPrefix: "sec:v1:",
     });
     return span;
@@ -65,12 +66,15 @@ class SecureBlockWidget extends WidgetType {
   constructor(
     private plugin: SecureInlinePlugin,
     private armored: string,
+    private revealAll: boolean,
   ) {
     super();
   }
 
   eq(other: SecureBlockWidget): boolean {
-    return other.armored === this.armored;
+    return (
+      other.armored === this.armored && other.revealAll === this.revealAll
+    );
   }
 
   toDOM(): HTMLElement {
@@ -109,6 +113,7 @@ function buildInlineDecorations(
             plugin,
             match[0],
             focused && plugin.settings.inlineRevealOnFocus,
+            plugin.revealAll,
           ),
         }),
       );
@@ -131,7 +136,11 @@ function buildBlockDecorations(
       fence.to,
       Decoration.replace({
         block: true,
-        widget: new SecureBlockWidget(plugin, fence.content.trim()),
+        widget: new SecureBlockWidget(
+          plugin,
+          fence.content.trim(),
+          plugin.revealAll,
+        ),
       }),
     );
   }

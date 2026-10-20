@@ -1,4 +1,4 @@
-import { Editor, Notice } from "obsidian";
+import { Editor, MarkdownView, Notice } from "obsidian";
 
 import { secureBlock } from "./block";
 import {
@@ -103,6 +103,50 @@ async function encryptPendingBlocks(
   }
 }
 
+function refreshSecureViews(plugin: SecureInlinePlugin): void {
+  plugin.app.workspace.iterateAllLeaves((leaf) => {
+    const view = leaf.view;
+    if (!(view instanceof MarkdownView)) {
+      return;
+    }
+    if (view.getMode() === "preview") {
+      view.previewMode.rerender(true);
+      return;
+    }
+    view.editor.refresh();
+    const selector = plugin.revealAll
+      ? ".secure-inline-pill"
+      : ".secure-inline-relock";
+    const epoch = plugin.revealEpoch;
+    const clickControls = (): void => {
+      if (epoch !== plugin.revealEpoch) {
+        return;
+      }
+      view.contentEl
+        .querySelectorAll<HTMLElement>(selector)
+        .forEach((element) => {
+          if (element instanceof HTMLButtonElement && element.disabled) {
+            return;
+          }
+          element.click();
+        });
+    };
+    clickControls();
+    window.setTimeout(clickControls, 0);
+  });
+}
+
+function setRevealAll(plugin: SecureInlinePlugin, revealAll: boolean): void {
+  plugin.revealAll = revealAll;
+  plugin.revealEpoch += 1;
+  refreshSecureViews(plugin);
+  new Notice(
+    revealAll
+      ? "Secrets revealed for this session"
+      : "Secrets relocked",
+  );
+}
+
 export function registerCommands(plugin: SecureInlinePlugin): void {
   plugin.addCommand({
     id: "secure-inline-encrypt-selection",
@@ -128,17 +172,34 @@ export function registerCommands(plugin: SecureInlinePlugin): void {
     },
   });
 
+  plugin.addCommand({
+    id: "secure-inline-toggle-global-reveal",
+    name: "Toggle global reveal",
+    callback: () => {
+      setRevealAll(plugin, !plugin.revealAll);
+    },
+  });
+
   plugin.registerEvent(
     plugin.app.workspace.on("editor-menu", (menu, editor) => {
-      if (!editor.getSelection()) {
-        return;
+      if (editor.getSelection()) {
+        menu.addItem((item) => {
+          item
+            .setTitle("Secure selection")
+            .setIcon("lock")
+            .onClick(() => {
+              void encryptSelection(plugin, editor, false);
+            });
+        });
       }
       menu.addItem((item) => {
         item
-          .setTitle("Secure selection")
-          .setIcon("lock")
+          .setTitle(
+            plugin.revealAll ? "Relock all secrets" : "Reveal all secrets",
+          )
+          .setIcon(plugin.revealAll ? "eye-off" : "eye")
           .onClick(() => {
-            void encryptSelection(plugin, editor, false);
+            setRevealAll(plugin, !plugin.revealAll);
           });
       });
     }),

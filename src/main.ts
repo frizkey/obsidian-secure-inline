@@ -16,6 +16,8 @@ export default class SecureInlinePlugin extends Plugin {
     recipients: [],
     warnings: [],
   };
+  revealAll = false;
+  revealEpoch = 0;
 
   async onload(): Promise<void> {
     await this.loadSettings();

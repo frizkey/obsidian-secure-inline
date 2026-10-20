@@ -8,7 +8,8 @@ Obsidian plugin for encrypting sensitive text directly inside notes with interop
 - Encrypt short single-line selections into compact `sec:v1:` inline tokens.
 - Click encrypted content in Reading mode or Live Preview to reveal it.
 - Relock revealed plaintext manually or automatically after a timeout.
-- Copy and reveal plaintext with Ctrl/Cmd-click on inline tokens.
+- Reveal every secret for the session with a global toggle.
+- Copy plaintext from revealed values or with Ctrl/Cmd-click on locked secrets.
 - Encrypt with an age passphrase when recipient keys are unavailable.
 - Auto-encrypt plaintext typed inside `secure`/`age` fences when the cursor leaves the block.
 - Sweep a note for pending plaintext secure blocks with an explicit command.
@@ -92,10 +93,11 @@ Add one `age1...` recipient per line in settings. These recipients are merged wi
 
 - In Reading mode, click a `secure`/`age` block to reveal it.
 - In Reading mode or Live Preview, click a `sec:v1:` token to reveal it.
+- Run **Secure Inline: Toggle global reveal**, or right-click the editor and choose **Reveal all secrets**, to reveal every rendered secret for the session.
 - With **Reveal inline tokens on focus** enabled, placing the cursor inside a Live Preview token displays `sec:v1:<plaintext>` without changing the file.
-- Ctrl/Cmd-click an inline token to copy plaintext and reveal it.
-- Click **Copy** to copy revealed block plaintext.
-- Click **Relock** to hide plaintext. If auto-relock seconds is nonzero, plaintext hides automatically.
+- Ctrl/Cmd-click a locked inline token or secure block to copy plaintext and reveal it.
+- Click **Copy** next to a revealed value to copy it.
+- Click **Relock**, or use the global toggle again, to hide plaintext. Auto-relock is suspended while global reveal is enabled.
 - If no configured identity matches, the plugin prompts for a passphrase and retries passphrase decryption.
 
 ## age CLI interoperability
@@ -133,6 +135,7 @@ For Android, run the installer against the synced vault directory before opening
 - Desktop private identities stay in `~/.config/age/keys.txt` outside the vault.
 - Generated device identities are stored through Obsidian SecretStorage, not plugin settings.
 - Decrypted plaintext appears only in the reveal DOM and in the clipboard after explicit user action.
+- Global reveal is session-only and display-only; it is not saved to settings or the note file.
 - Clipboard managers, sync tools, screenshots, and Obsidian's own editor history can still expose revealed or copied plaintext.
 - Copying editor source preserves ciphertext. Copying or exporting rendered output can include revealed plaintext, and a locked rendered block does not contain its armor source.
 - Clipboard clearing is optional and only clears the clipboard if it still contains the same plaintext.
