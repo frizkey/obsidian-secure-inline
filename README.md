@@ -123,6 +123,7 @@ Then link or copy the plugin into a test vault:
 mkdir -p "/path/to/vault/.obsidian/plugins/secure-inline"
 ln -s "$PWD/main.js" "/path/to/vault/.obsidian/plugins/secure-inline/main.js"
 ln -s "$PWD/manifest.json" "/path/to/vault/.obsidian/plugins/secure-inline/manifest.json"
+ln -s "$PWD/styles.css" "/path/to/vault/.obsidian/plugins/secure-inline/styles.css"
 ```
 
 Enable **Secure Inline (age)** in Obsidian community plugin settings. For BRAT-based testing, install this repository as a custom beta plugin after pushing it to a git remote.

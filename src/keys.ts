@@ -50,7 +50,8 @@ export function parseKeysFile(text: string): KeyMaterial {
     warnings: [],
   };
 
-  for (const line of text.split(/\r?\n/)) {
+  const lines = text.split(/\r?\n/);
+  for (const [index, line] of lines.entries()) {
     const trimmed = line.trim();
     const publicKey = trimmed.match(PUBLIC_KEY_COMMENT_RE)?.[1];
     if (publicKey) {
@@ -69,7 +70,10 @@ export function parseKeysFile(text: string): KeyMaterial {
       continue;
     }
     if (AGE_PLUGIN_RE.test(trimmed) || UNSUPPORTED_AGE_LINE_RE.test(trimmed)) {
-      pushUnique(material.warnings, `unsupported age identity: ${trimmed}`);
+      pushUnique(
+        material.warnings,
+        `unsupported age identity on line ${index + 1}`,
+      );
     }
   }
 

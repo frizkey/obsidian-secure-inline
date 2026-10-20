@@ -1,0 +1,57 @@
+.secure-inline-settings-intro {
+  color: var(--text-muted);
+  margin-bottom: 1.25rem;
+}
+
+.secure-inline-settings-heading {
+  border-top: 1px solid var(--background-modifier-border);
+  color: var(--text-normal);
+  margin: 1.5rem 0 0.5rem;
+  padding-top: 1.25rem;
+}
+
+.secure-inline-key-summary {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.secure-inline-status-ok {
+  color: var(--text-success);
+  font-weight: 600;
+}
+
+.secure-inline-status-muted {
+  color: var(--text-muted);
+}
+
+.secure-inline-status-warning {
+  color: var(--text-warning);
+}
+
+.secure-inline-input {
+  font-family: var(--font-monospace);
+  max-width: 34rem;
+  width: 100%;
+}
+
+.secure-inline-recipient {
+  display: inline-block;
+  font-size: var(--font-ui-smaller);
+  margin-left: 0.35rem;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+@media (max-width: 600px) {
+  .secure-inline-input {
+    max-width: 100%;
+  }
+
+  .secure-inline-key-summary {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+}

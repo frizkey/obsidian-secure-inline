@@ -5,6 +5,25 @@ import type { SecureInlineSettings } from "./settings";
 
 export const DEVICE_IDENTITY_SECRET_ID = "secure-inline-device-identity";
 
+export async function getDeviceRecipient(
+  app: App,
+  settings: SecureInlineSettings,
+): Promise<string | null> {
+  const secretName = settings.deviceIdentitySecretName;
+  if (!secretName || !app.secretStorage) {
+    return null;
+  }
+  const identity = app.secretStorage.getSecret(secretName);
+  if (!identity) {
+    return null;
+  }
+  try {
+    return await age.identityToRecipient(identity);
+  } catch {
+    return null;
+  }
+}
+
 export async function ensureDeviceIdentity(
   app: App,
   settings: SecureInlineSettings,
