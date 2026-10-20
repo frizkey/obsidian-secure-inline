@@ -36,12 +36,12 @@ Use disposable values only. Do not record private identities or decrypted produc
 
 | Area | Check | Result | Evidence | Follow-up |
 |------|-------|--------|----------|-----------|
-| Live Preview | `sec:v1:` token displays as pill | Pending | Requires interactive Obsidian session | Manual verification |
-| Live Preview | Token click reveals plaintext | Pending | Requires interactive Obsidian session | Manual verification |
-| Live Preview | Ctrl/Cmd-click copies without reveal | Pending | Requires interactive Obsidian session | Manual verification |
-| Live Preview | Cursor inside token restores source | Pending | Requires interactive Obsidian session | Manual verification |
-| Live Preview | Secure block displays locked widget | Pending | Requires interactive Obsidian session | Manual verification |
-| Live Preview | Cursor inside block restores source | Pending | Requires interactive Obsidian session | Manual verification |
+| Live Preview | `sec:v1:` token displays as pill | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
+| Live Preview | Token click reveals plaintext | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
+| Live Preview | Ctrl/Cmd-click copies without reveal | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
+| Live Preview | Cursor inside token restores source | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
+| Live Preview | Secure block displays locked widget | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
+| Live Preview | Cursor inside block restores source | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
 
 ## Mobile
 
