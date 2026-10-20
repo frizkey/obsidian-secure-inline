@@ -1,0 +1,135 @@
+import * as age from "age-encryption";
+import type { App } from "obsidian";
+
+import type { SecureInlineSettings } from "./settings";
+
+export interface KeyMaterial {
+  identities: string[];
+  recipients: string[];
+  warnings: string[];
+}
+
+const AGE_IDENTITY_RE = /^AGE-SECRET-KEY-1[0-9A-Z]+$/;
+const AGE_PLUGIN_RE = /^AGE-PLUGIN-/;
+const UNSUPPORTED_AGE_LINE_RE = /^AGE-[A-Z0-9-]+/;
+const AGE_RECIPIENT_RE = /^age1[02-9ac-hj-np-z]+$/;
+const PUBLIC_KEY_COMMENT_RE = /^#\s*public key:\s*(age1\S+)\s*$/i;
+
+function pushUnique(values: string[], value: string): void {
+  if (!values.includes(value)) {
+    values.push(value);
+  }
+}
+
+function isDesktopApp(): boolean {
+  if (typeof require !== "function") {
+    return false;
+  }
+  try {
+    const obsidian = require("obsidian") as {
+      Platform?: { isDesktopApp?: boolean };
+    };
+    return obsidian.Platform?.isDesktopApp === true;
+  } catch {
+    return false;
+  }
+}
+
+function expandPath(path: string): string {
+  if (!path.startsWith("~")) {
+    return path;
+  }
+  const os = require("os") as typeof import("node:os");
+  return path === "~" ? os.homedir() : os.homedir() + path.slice(1);
+}
+
+export function parseKeysFile(text: string): KeyMaterial {
+  const material: KeyMaterial = {
+    identities: [],
+    recipients: [],
+    warnings: [],
+  };
+
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    const publicKey = trimmed.match(PUBLIC_KEY_COMMENT_RE)?.[1];
+    if (publicKey) {
+      pushUnique(material.recipients, publicKey);
+      continue;
+    }
+    if (!trimmed || trimmed.startsWith("#")) {
+      continue;
+    }
+    if (AGE_IDENTITY_RE.test(trimmed)) {
+      pushUnique(material.identities, trimmed);
+      continue;
+    }
+    if (AGE_RECIPIENT_RE.test(trimmed)) {
+      pushUnique(material.recipients, trimmed);
+      continue;
+    }
+    if (AGE_PLUGIN_RE.test(trimmed) || UNSUPPORTED_AGE_LINE_RE.test(trimmed)) {
+      pushUnique(material.warnings, `unsupported age identity: ${trimmed}`);
+    }
+  }
+
+  return material;
+}
+
+export async function loadKeyMaterial(
+  app: App,
+  settings: SecureInlineSettings,
+): Promise<KeyMaterial> {
+  const material: KeyMaterial = {
+    identities: [],
+    recipients: [],
+    warnings: [],
+  };
+
+  if (isDesktopApp()) {
+    try {
+      const fs = require("fs") as typeof import("node:fs");
+      const keysPath = expandPath(settings.keysFilePath);
+      const parsed = parseKeysFile(fs.readFileSync(keysPath, "utf8"));
+      material.identities.push(...parsed.identities);
+      material.recipients.push(...parsed.recipients);
+      material.warnings.push(...parsed.warnings);
+    } catch {
+      material.warnings.push(`keys file unavailable: ${settings.keysFilePath}`);
+    }
+  }
+
+  const secretName = settings.deviceIdentitySecretName;
+  if (secretName && app.secretStorage) {
+    try {
+      const identity = app.secretStorage.getSecret(secretName);
+      if (!identity) {
+        material.warnings.push("device identity secret unavailable");
+      } else {
+        pushUnique(material.identities, identity);
+        try {
+          pushUnique(
+            material.recipients,
+            await age.identityToRecipient(identity),
+          );
+        } catch {
+          material.warnings.push("device identity is not an age identity");
+        }
+      }
+    } catch {
+      material.warnings.push("device identity secret unavailable");
+    }
+  }
+
+  for (const line of settings.extraRecipients.split(/\r?\n/)) {
+    const recipient = line.trim();
+    if (AGE_RECIPIENT_RE.test(recipient)) {
+      pushUnique(material.recipients, recipient);
+    }
+  }
+
+  material.identities = [...new Set(material.identities)];
+  material.recipients = [...new Set(material.recipients)];
+  material.warnings = [...new Set(material.warnings)];
+  return material;
+}
