@@ -1,0 +1,23 @@
+{
+  "name": "obsidian-secure-inline",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Inline age-encrypted secrets in notes.",
+  "main": "main.js",
+  "scripts": {
+    "dev": "node esbuild.config.mjs",
+    "build": "node esbuild.config.mjs production",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "age-encryption": "0.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.5",
+    "esbuild": "0.28.2",
+    "obsidian": "1.14.4",
+    "typescript": "5.9.3",
+    "vitest": "2.1.9"
+  }
+}
