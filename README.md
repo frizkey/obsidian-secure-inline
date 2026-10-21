@@ -2,6 +2,8 @@
 
 Obsidian plugin for encrypting sensitive text directly inside notes with interoperable [age](https://age-encryption.org/) encryption.
 
+![Secure Inline rendering inline tokens, a revealed armor block, and a secure-properties table](docs/screenshot.png)
+
 ## Warning
 
 - **Lost keys = lost data.** Ciphertext cannot be recovered without your age identity file or passphrase.
