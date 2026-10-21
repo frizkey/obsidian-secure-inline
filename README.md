@@ -2,6 +2,13 @@
 
 Obsidian plugin for encrypting sensitive text directly inside notes with interoperable [age](https://age-encryption.org/) encryption.
 
+## Warning
+
+- **Lost keys = lost data.** Ciphertext cannot be recovered without your age identity file or passphrase.
+- Back up your keys (`~/.config/age/keys.txt`) and passphrases before relying on this plugin.
+- Test on a copy of a note before encrypting important data.
+- Use at your own risk — see [LICENSE](LICENSE) for full terms.
+
 ## Features
 
 - Encrypt selected text into a fenced `secure` block containing age ASCII armor.
@@ -50,7 +57,7 @@ password: sec:v1:<unpadded-base64url-age-ciphertext>
 ```
 ````
 
-`secure-properties` keeps keys readable and encrypts every non-empty scalar value. Simple `key: value` lines are supported; comments, blank lines, nested YAML, lists, block scalars, and other structured values are left unchanged.
+`secure-properties` keeps keys readable and encrypts every non-empty scalar value. Both `key: value` and dotenv-style `KEY=value` lines are supported; comments, blank lines, nested YAML, lists, block scalars, and other structured values are left unchanged.
 
 ## Key setup
 
