@@ -76,6 +76,38 @@ describe("parseSecureProperties", () => {
     expect(hasPendingSecureProperties("api_key: sec:v1:abc123")).toBe(false);
     expect(hasPendingSecureProperties("empty:")).toBe(false);
   });
+
+  it("parses dotenv-style KEY=value lines", () => {
+    const lines = parseSecureProperties(
+      "GETAPPROVE_EMAIL=sec:v1:abc_DEF-123\nSEED_ENABLED=true\nEMPTY=",
+    );
+
+    expect(lines[0]).toMatchObject({
+      isProperty: true,
+      key: "GETAPPROVE_EMAIL",
+      value: "sec:v1:abc_DEF-123",
+      isEncrypted: true,
+    });
+    expect(lines[1]).toMatchObject({
+      isProperty: true,
+      key: "SEED_ENABLED",
+      value: "true",
+      isEncrypted: false,
+      encryptable: true,
+    });
+    expect(lines[2]).toMatchObject({
+      isProperty: true,
+      key: "EMPTY",
+      value: "",
+      encryptable: false,
+    });
+    expect(
+      "GETAPPROVE_EMAIL=sec:v1:abc_DEF-123".slice(
+        lines[0].valueFrom,
+        lines[0].valueTo,
+      ),
+    ).toBe("sec:v1:abc_DEF-123");
+  });
 });
 
 describe("encryptSecurePropertiesContent", () => {
@@ -104,6 +136,20 @@ describe("encryptSecurePropertiesContent", () => {
         "# comment\napi_key: sec:v1:secret\nnot a property\ntoken: fail\nempty:",
       encrypted: 1,
       failed: 1,
+    });
+  });
+
+  it("encrypts dotenv values without corrupting existing tokens", async () => {
+    const result = await encryptSecurePropertiesContent(
+      "KEY=plain\nEMAIL=sec:v1:existing\n# comment\nFLAG=true",
+      async (value) => `sec:v1:${value}`,
+    );
+
+    expect(result).toEqual({
+      content:
+        "KEY=sec:v1:plain\nEMAIL=sec:v1:existing\n# comment\nFLAG=sec:v1:true",
+      encrypted: 2,
+      failed: 0,
     });
   });
 

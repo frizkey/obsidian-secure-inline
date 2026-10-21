@@ -17,7 +17,7 @@ export interface SecurePropertiesEncryptionResult {
   failed: number;
 }
 
-const PROPERTY_LINE_RE = /^([^:#\r\n]+?)(:[ \t]*)(.*)$/;
+const PROPERTY_LINE_RE = /^([^:#\r\n=]+?)([:=][ \t]*)(.*)$/;
 const STRUCTURED_VALUE_RE = /^(?:[|>][+-]?|[[{]|[&*!?])/;
 const INLINE_TOKEN_PREFIX = "sec:v1:";
 
