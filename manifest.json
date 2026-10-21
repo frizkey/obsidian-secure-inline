@@ -5,5 +5,7 @@
   "minAppVersion": "1.11.4",
   "description": "Inline age-encrypted secrets in notes.",
   "author": "arie",
+  "authorUrl": "https://github.com/frizkey",
+  "fundingUrl": "https://ko-fi.com/ariefrizky",
   "isDesktopOnly": false
 }
