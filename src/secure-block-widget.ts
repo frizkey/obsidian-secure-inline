@@ -2,7 +2,13 @@ import { Notice } from "obsidian";
 
 import { copyPlaintext } from "./clipboard";
 import { decryptSecret } from "./decrypt";
+import { LOCKED_LABEL } from "./inline-widget";
 import type SecureInlinePlugin from "./main";
+import {
+  renderActionButtonContent,
+  renderLockedButtonContent,
+  renderStatusContent,
+} from "./secure-ui";
 
 export function renderSecureBlock(
   plugin: SecureInlinePlugin,
@@ -17,20 +23,46 @@ export function renderSecureBlock(
       relockTimer = null;
     }
     el.empty();
+    el.removeClass("secure-inline-block");
     const button = el.createEl("button", {
       cls: "secure-inline-pill",
-      text: "Secure — click to reveal",
-      attr: { type: "button" },
+      attr: {
+        type: "button",
+        title: "Click to reveal. Ctrl/Cmd-click to copy and reveal.",
+      },
     });
-    button.addEventListener("click", () => {
+    renderLockedButtonContent(button, LOCKED_LABEL);
+    button.addEventListener("click", (event) => {
       button.disabled = true;
+      const epoch = plugin.revealEpoch;
       void decryptSecret(plugin, armored, "armored")
-        .then((plaintext) => {
-          if (plaintext !== null) {
-            renderPlaintext(plaintext);
-          } else {
+        .then(async (plaintext) => {
+          if (epoch !== plugin.revealEpoch) {
             renderLocked();
+            if (plugin.revealAll) {
+              window.setTimeout(() => {
+                if (plugin.revealAll) {
+                  el.querySelector<HTMLElement>(
+                    ".secure-inline-pill",
+                  )?.click();
+                }
+              }, 0);
+            }
+            return;
           }
+          if (plaintext === null) {
+            renderLocked();
+            return;
+          }
+          if (event.ctrlKey || event.metaKey) {
+            try {
+              await copyPlaintext(plugin, plaintext);
+              new Notice("Plaintext copied");
+            } catch {
+              new Notice("Clipboard unavailable");
+            }
+          }
+          renderPlaintext(plaintext);
         })
         .catch((error: unknown) => {
           new Notice(
@@ -44,25 +76,32 @@ export function renderSecureBlock(
   const renderPlaintext = (plaintext: string): void => {
     el.empty();
     el.addClass("secure-inline-block");
-    const pre = el.createEl("pre", { cls: "secure-inline-plaintext" });
-    pre.setText(plaintext);
-    const controls = el.createEl("div", { cls: "secure-inline-controls" });
-    const copy = controls.createEl("button", {
-      text: "Copy",
-      attr: { type: "button" },
+    const header = el.createEl("div", { cls: "secure-inline-block-header" });
+    const status = header.createSpan({ cls: "secure-inline-block-status" });
+    renderStatusContent(status, "Revealed secret", "eye");
+    const controls = header.createEl("div", {
+      cls: "secure-inline-controls",
     });
+    const copy = controls.createEl("button", {
+      cls: "secure-inline-copy",
+      attr: { type: "button", title: "Copy plaintext" },
+    });
+    renderActionButtonContent(copy, "Copy", "copy");
     copy.addEventListener("click", () => {
       void copyPlaintext(plugin, plaintext)
         .then(() => new Notice("Plaintext copied"))
         .catch(() => new Notice("Clipboard unavailable"));
     });
     const relock = controls.createEl("button", {
-      text: "Relock",
-      attr: { type: "button" },
+      cls: "secure-inline-relock",
+      attr: { type: "button", title: "Relock secret" },
     });
+    renderActionButtonContent(relock, "Relock", "lock");
     relock.addEventListener("click", renderLocked);
+    const pre = el.createEl("pre", { cls: "secure-inline-plaintext" });
+    pre.setText(plaintext);
 
-    if (plugin.settings.revealSeconds > 0) {
+    if (!plugin.revealAll && plugin.settings.revealSeconds > 0) {
       relockTimer = window.setTimeout(
         renderLocked,
         plugin.settings.revealSeconds * 1000,
@@ -70,6 +109,32 @@ export function renderSecureBlock(
     }
   };
 
+  if (plugin.revealAll) {
+    const epoch = plugin.revealEpoch;
+    void decryptSecret(plugin, armored, "armored")
+      .then((plaintext) => {
+        if (epoch !== plugin.revealEpoch) {
+          renderLocked();
+          if (plugin.revealAll) {
+            window.setTimeout(() => {
+              if (plugin.revealAll) {
+                el.querySelector<HTMLElement>(
+                  ".secure-inline-pill",
+                )?.click();
+              }
+            }, 0);
+          }
+          return;
+        }
+        if (plaintext === null) {
+          renderLocked();
+          return;
+        }
+        renderPlaintext(plaintext);
+      })
+      .catch(() => renderLocked());
+    return;
+  }
   renderLocked();
 }
 

@@ -14,9 +14,11 @@ import {
 } from "@codemirror/view";
 
 import { INLINE_TOKEN_RE } from "./block";
-import { attachTokenBehavior } from "./inline-widget";
+import { attachTokenBehavior, LOCKED_LABEL } from "./inline-widget";
 import type SecureInlinePlugin from "./main";
 import { renderSecureBlock } from "./secure-block-widget";
+import { scanSecureFences } from "./secure-fences";
+import { renderSecureProperties } from "./secure-properties-widget";
 
 function selectionIntersects(
   state: EditorState,
@@ -32,19 +34,27 @@ class SecureTokenWidget extends WidgetType {
   constructor(
     private plugin: SecureInlinePlugin,
     private token: string,
+    private revealOnFocus: boolean,
+    private revealAll: boolean,
   ) {
     super();
   }
 
   eq(other: SecureTokenWidget): boolean {
-    return other.token === this.token;
+    return (
+      other.token === this.token &&
+      other.revealOnFocus === this.revealOnFocus &&
+      other.revealAll === this.revealAll
+    );
   }
 
   toDOM(): HTMLElement {
     const span = document.createElement("span");
     span.addClass("secure-inline", "secure-inline-live");
-    span.setText("Secure");
-    attachTokenBehavior(this.plugin, span, this.token, "Secure");
+    attachTokenBehavior(this.plugin, span, this.token, LOCKED_LABEL, {
+      revealOnAttach: this.revealOnFocus || this.plugin.revealAll,
+      revealedPrefix: "sec:v1:",
+    });
     return span;
   }
 
@@ -57,12 +67,15 @@ class SecureBlockWidget extends WidgetType {
   constructor(
     private plugin: SecureInlinePlugin,
     private armored: string,
+    private revealAll: boolean,
   ) {
     super();
   }
 
   eq(other: SecureBlockWidget): boolean {
-    return other.armored === this.armored;
+    return (
+      other.armored === this.armored && other.revealAll === this.revealAll
+    );
   }
 
   toDOM(): HTMLElement {
@@ -77,11 +90,38 @@ class SecureBlockWidget extends WidgetType {
   }
 }
 
+class SecurePropertiesWidget extends WidgetType {
+  constructor(
+    private plugin: SecureInlinePlugin,
+    private content: string,
+    private revealAll: boolean,
+  ) {
+    super();
+  }
+
+  eq(other: SecurePropertiesWidget): boolean {
+    return (
+      other.content === this.content && other.revealAll === this.revealAll
+    );
+  }
+
+  toDOM(): HTMLElement {
+    const el = document.createElement("div");
+    renderSecureProperties(this.plugin, this.content, el);
+    return el;
+  }
+
+  ignoreEvent(): boolean {
+    return false;
+  }
+}
+
 function buildInlineDecorations(
   view: EditorView,
   plugin: SecureInlinePlugin,
 ): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
+  const secureFences = scanSecureFences(view.state.doc.toString());
   for (const range of view.visibleRanges) {
     const text = view.state.doc.sliceString(range.from, range.to);
     INLINE_TOKEN_RE.lastIndex = 0;
@@ -89,14 +129,27 @@ function buildInlineDecorations(
       const index = match.index ?? 0;
       const from = range.from + index;
       const to = from + match[0].length;
-      if (selectionIntersects(view.state, from, to)) {
+      if (
+        secureFences.some(
+          (fence) => from >= fence.from && to <= fence.to,
+        )
+      ) {
+        continue;
+      }
+      const focused = selectionIntersects(view.state, from, to);
+      if (focused && !plugin.settings.inlineRevealOnFocus) {
         continue;
       }
       builder.add(
         from,
         to,
         Decoration.replace({
-          widget: new SecureTokenWidget(plugin, match[0]),
+          widget: new SecureTokenWidget(
+            plugin,
+            match[0],
+            focused && plugin.settings.inlineRevealOnFocus,
+            plugin.revealAll,
+          ),
         }),
       );
     }
@@ -109,42 +162,38 @@ function buildBlockDecorations(
   plugin: SecureInlinePlugin,
 ): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
-  const doc = state.doc;
-  for (let lineNo = 1; lineNo <= doc.lines; lineNo += 1) {
-    const line = doc.line(lineNo);
-    const opening = line.text.match(/^(`{3,}|~{3,})(secure|age)\s*$/);
-    if (!opening) {
+  for (const fence of scanSecureFences(state.doc.toString())) {
+    if (selectionIntersects(state, fence.from, fence.to)) {
       continue;
     }
-    const fence = opening[1];
-    const fenceChar = fence[0];
-    let closing = null;
-    for (let endLineNo = lineNo + 1; endLineNo <= doc.lines; endLineNo += 1) {
-      const endLine = doc.line(endLineNo);
-      const trimmed = endLine.text.trim();
-      if (
-        trimmed.length >= fence.length &&
-        trimmed.split("").every((char) => char === fenceChar)
-      ) {
-        closing = endLine;
-        lineNo = endLineNo;
-        break;
-      }
-    }
-    if (!closing) {
-      break;
-    }
-    if (selectionIntersects(state, line.from, closing.to)) {
+    if (fence.kind === "secure-properties") {
+      builder.add(
+        fence.from,
+        fence.to,
+        Decoration.replace({
+          block: true,
+          widget: new SecurePropertiesWidget(
+            plugin,
+            fence.content,
+            plugin.revealAll,
+          ),
+        }),
+      );
       continue;
     }
-    const innerFrom = line.to + 1;
-    const armored = doc.sliceString(innerFrom, closing.from).trim();
+    if (!fence.isArmored) {
+      continue;
+    }
     builder.add(
-      line.from,
-      closing.to,
+      fence.from,
+      fence.to,
       Decoration.replace({
         block: true,
-        widget: new SecureBlockWidget(plugin, armored),
+        widget: new SecureBlockWidget(
+          plugin,
+          fence.content.trim(),
+          plugin.revealAll,
+        ),
       }),
     );
   }

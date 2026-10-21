@@ -35,7 +35,7 @@ describe("parseKeysFile", () => {
       "age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq0m5h4l",
     ]);
     expect(material.warnings).toEqual([
-      "unsupported age identity: AGE-PLUGIN-FOO-1QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQABC123",
+      "unsupported age identity on line 6",
     ]);
   });
 });

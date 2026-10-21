@@ -4,6 +4,10 @@ import { INLINE_TOKEN_RE } from "./block";
 import { copyPlaintext } from "./clipboard";
 import { decryptSecret } from "./decrypt";
 import type SecureInlinePlugin from "./main";
+import {
+  renderActionButtonContent,
+  renderLockedButtonContent,
+} from "./secure-ui";
 
 function tokenize(text: string): (string | { token: string })[] {
   INLINE_TOKEN_RE.lastIndex = 0;
@@ -32,65 +36,154 @@ function isEligibleTextNode(node: Node): boolean {
   );
 }
 
+export const LOCKED_LABEL = "Secure";
+
+interface TokenBehaviorOptions {
+  revealOnAttach?: boolean;
+  revealedPrefix?: string;
+}
+
 export function attachTokenBehavior(
   plugin: SecureInlinePlugin,
   span: HTMLElement,
   token: string,
   lockedText = token,
+  options: TokenBehaviorOptions = {},
 ): void {
   let relockTimer: number | null = null;
+  let revealInFlight = false;
   const lock = (): void => {
     if (relockTimer !== null) {
       window.clearTimeout(relockTimer);
       relockTimer = null;
     }
     span.empty();
-    span.setText(lockedText);
     span.removeClass("secure-inline-revealed");
+    span.tabIndex = -1;
+    const button = span.createEl("button", {
+      cls: "secure-inline-pill",
+      attr: {
+        type: "button",
+        "aria-label": "Secure, click to reveal",
+        title: "Click to reveal. Ctrl/Cmd-click to copy and reveal.",
+      },
+    });
+    renderLockedButtonContent(button, lockedText);
+  };
+
+  const showPlaintext = (plaintext: string): void => {
+    if (relockTimer !== null) {
+      window.clearTimeout(relockTimer);
+      relockTimer = null;
+    }
+    span.empty();
+    span.removeClass("secure-inline-pill");
+    span.removeAttribute("role");
+    span.removeAttribute("aria-label");
+    span.removeAttribute("title");
+    span.tabIndex = -1;
+
+    if (options.revealedPrefix) {
+      span.createSpan({
+        text: options.revealedPrefix,
+        cls: "secure-inline-prefix",
+      });
+    }
+    span.createSpan({
+      text: plaintext,
+      cls: "secure-inline-value",
+    });
+    const controls = span.createSpan({ cls: "secure-inline-inline-controls" });
+    const copy = controls.createEl("button", {
+      cls: "secure-inline-copy",
+      attr: { type: "button", title: "Copy plaintext" },
+    });
+    renderActionButtonContent(copy, "Copy", "copy");
+    copy.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      void copyPlaintext(plugin, plaintext)
+        .then(() => new Notice("Plaintext copied"))
+        .catch(() => new Notice("Clipboard unavailable"));
+    });
+    const relock = controls.createEl("button", {
+      cls: "secure-inline-relock",
+      attr: { type: "button", title: "Relock value" },
+    });
+    renderActionButtonContent(relock, "Relock", "lock");
+    relock.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      lock();
+    });
+
+    span.addClass("secure-inline-revealed");
+    if (!plugin.revealAll && plugin.settings.revealSeconds > 0) {
+      relockTimer = window.setTimeout(
+        lock,
+        plugin.settings.revealSeconds * 1000,
+      );
+    }
+  };
+
+  const reveal = async (copyAfter = false): Promise<void> => {
+    if (revealInFlight) {
+      return;
+    }
+    revealInFlight = true;
+    const epoch = plugin.revealEpoch;
+    try {
+      const plaintext = await decryptSecret(plugin, token, "inline");
+      if (epoch !== plugin.revealEpoch) {
+        lock();
+        if (plugin.revealAll) {
+          window.setTimeout(() => {
+            if (plugin.revealAll) {
+              span.click();
+            }
+          }, 0);
+        }
+        return;
+      }
+      if (plaintext === null) {
+        return;
+      }
+      if (copyAfter) {
+        try {
+          await copyPlaintext(plugin, plaintext);
+          new Notice("Plaintext copied");
+        } catch {
+          new Notice("Clipboard unavailable");
+        }
+      }
+      showPlaintext(plaintext);
+    } catch (error) {
+      new Notice(error instanceof Error ? error.message : "decrypt failed");
+    } finally {
+      revealInFlight = false;
+    }
   };
 
   span.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
-    if (event.ctrlKey || event.metaKey) {
-      void decryptSecret(plugin, token, "inline")
-        .then((plaintext) => {
-          if (plaintext === null) {
-            return;
-          }
-          return copyPlaintext(plugin, plaintext).then(
-            () => new Notice("Plaintext copied"),
-          );
-        })
-        .catch((error: unknown) => {
-          new Notice(
-            error instanceof Error ? error.message : "decrypt failed",
-          );
-        });
-      return;
-    }
     if (span.hasClass("secure-inline-revealed")) {
       return;
     }
-    void decryptSecret(plugin, token, "inline")
-      .then((plaintext) => {
-        if (plaintext === null) {
-          return;
-        }
-        span.empty();
-        span.setText(plaintext);
-        span.addClass("secure-inline-revealed");
-        if (plugin.settings.revealSeconds > 0) {
-          relockTimer = window.setTimeout(
-            lock,
-            plugin.settings.revealSeconds * 1000,
-          );
-        }
-      })
-      .catch((error: unknown) => {
-        new Notice(error instanceof Error ? error.message : "decrypt failed");
-      });
+    void reveal(event.ctrlKey || event.metaKey);
   });
+  span.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    event.preventDefault();
+    span.click();
+  });
+
+  lock();
+  if (options.revealOnAttach || plugin.revealAll) {
+    void reveal();
+  }
 }
 
 export function registerInlineProcessor(
@@ -125,8 +218,7 @@ export function registerInlineProcessor(
         } else {
           const span = document.createElement("span");
           span.addClass("secure-inline");
-          span.setText(part.token);
-          attachTokenBehavior(plugin, span, part.token);
+          attachTokenBehavior(plugin, span, part.token, LOCKED_LABEL);
           fragment.appendChild(span);
         }
       }

@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEVICE_IDENTITY_SECRET_ID,
   ensureDeviceIdentity,
+  getDeviceRecipient,
 } from "../src/device-identity";
 import { DEFAULT_SETTINGS } from "../src/settings";
 
@@ -25,6 +26,8 @@ describe("settings", () => {
     expect(DEFAULT_SETTINGS.revealSeconds).toBe(30);
     expect(DEFAULT_SETTINGS.inlineTokenMaxChars).toBe(80);
     expect(DEFAULT_SETTINGS.clipboardClearSeconds).toBe(0);
+    expect(DEFAULT_SETTINGS.inlineRevealOnFocus).toBe(true);
+    expect(DEFAULT_SETTINGS.autoEncryptPlaintextBlocks).toBe(true);
   });
 });
 
@@ -39,6 +42,16 @@ describe("device identity", () => {
     expect(settings.deviceIdentitySecretName).toBe(DEVICE_IDENTITY_SECRET_ID);
     expect(secrets.get(DEVICE_IDENTITY_SECRET_ID)).toMatch(/^AGE-SECRET-KEY-/);
     expect(secrets.get(DEVICE_IDENTITY_SECRET_ID)).not.toBe(recipient);
+  });
+
+  it("reads an existing recipient without creating an identity", async () => {
+    const secrets = new Map<string, string>();
+    const settings = { ...DEFAULT_SETTINGS };
+
+    await expect(
+      getDeviceRecipient(appWithSecrets(secrets), settings),
+    ).resolves.toBeNull();
+    expect(secrets.size).toBe(0);
   });
 
   it("reuses an existing SecretStorage identity", async () => {

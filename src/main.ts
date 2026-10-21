@@ -1,10 +1,12 @@
 import { Plugin } from "obsidian";
 
+import { registerAutoEncrypt } from "./auto-encrypt";
 import { registerCommands } from "./commands";
 import { registerInlineProcessor } from "./inline-widget";
 import { loadKeyMaterial, type KeyMaterial } from "./keys";
 import { registerLivePreview } from "./live-preview";
 import { registerSecureBlockProcessor } from "./secure-block-widget";
+import { registerSecurePropertiesProcessor } from "./secure-properties-widget";
 import { SecureInlineSettingTab } from "./settings-tab";
 import { DEFAULT_SETTINGS, type SecureInlineSettings } from "./settings";
 
@@ -15,13 +17,17 @@ export default class SecureInlinePlugin extends Plugin {
     recipients: [],
     warnings: [],
   };
+  revealAll = false;
+  revealEpoch = 0;
 
   async onload(): Promise<void> {
     await this.loadSettings();
     registerCommands(this);
     registerSecureBlockProcessor(this);
+    registerSecurePropertiesProcessor(this);
     registerInlineProcessor(this);
     registerLivePreview(this);
+    registerAutoEncrypt(this);
     this.addSettingTab(new SecureInlineSettingTab(this.app, this));
   }
 
