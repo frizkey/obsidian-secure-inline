@@ -74,6 +74,26 @@ Use disposable values only. Do not record private identities or decrypted produc
 |------|-------|--------|----------|-----------|
 | Defects | No release-blocking defects confirmed | Pending | No interactive manual checks completed; no defect entries opened | Manual verification |
 
+## Top-3 features (2026-10-21)
+
+| Area | Check | Result | Evidence | Follow-up |
+|------|-------|--------|----------|-----------|
+| Passphrase cache | Entries expire after TTL, evict lazily, newest first, clear() empties | Pass | `tests/passphrase-cache.test.ts` | None |
+| Passphrase cache | Cached passphrases tried before prompt; wrong ones skipped | Pass | `tests/passphrase-decrypt.test.ts` | None |
+| Passphrase cache | Lock passphrase cache command clears entries | Pending | Command path requires interactive editor | Manual verification |
+| Passphrase cache | `passphraseCacheMinutes` defaults to 15 | Pass | `tests/settings.test.ts` | None |
+| Identity transfer | `isAgeIdentity` accepts AGE-SECRET-KEY-1…, rejects age1…/garbage | Pass | `tests/device-identity.test.ts` | None |
+| Identity transfer | Import stores identity in SecretStorage, returns recipient; rejects recipients distinctly | Pass | `tests/device-identity.test.ts` | None |
+| Identity transfer | Export produces passphrase-armored identity; import on second device decrypts | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
+| Recipient labels | `age1… = label` and `age1… label` parse, junk skipped | Pass | `tests/recipient-labels.test.ts` | None |
+| Recipient labels | Labels rendered in key health list | Pending | Interactive settings unavailable in CLI | Manual verification |
+| Attachments | `x.png` ↔ `x.png.age` name mapping; `.age.age` not produced | Pass | `tests/secure-file.test.ts` | None |
+| Attachments | Binary round-trip byte-identical (non-UTF8 bytes) | Pass | `tests/secure-file.test.ts` | None |
+| Attachments | `.age` decrypt works via passphrase when no identity matches | Pass | `tests/secure-file.test.ts` | None |
+| Attachments | File-menu "Encrypt to .age" writes sidecar | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
+| Attachments | `.age` view opens, previews image/text, saves decrypted copy | Pending | Interactive Obsidian unavailable in CLI | Manual verification |
+| Attachments | `age -d sidecar.age` recovers file on CLI | Pending | `age` CLI not installed | Manual verification |
+
 ## Release
 
 | Area | Check | Result | Evidence | Follow-up |
