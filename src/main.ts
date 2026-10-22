@@ -1,6 +1,7 @@
 import { Plugin } from "obsidian";
 
 import { registerAutoEncrypt } from "./auto-encrypt";
+import { PassphraseCache } from "./passphrase-cache";
 import { registerCommands } from "./commands";
 import { registerInlineProcessor } from "./inline-widget";
 import { loadKeyMaterial, type KeyMaterial } from "./keys";
@@ -19,6 +20,7 @@ export default class SecureInlinePlugin extends Plugin {
   };
   revealAll = false;
   revealEpoch = 0;
+  passphraseCache = new PassphraseCache();
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -29,6 +31,10 @@ export default class SecureInlinePlugin extends Plugin {
     registerLivePreview(this);
     registerAutoEncrypt(this);
     this.addSettingTab(new SecureInlineSettingTab(this.app, this));
+  }
+
+  onunload(): void {
+    this.passphraseCache.clear();
   }
 
   async loadSettings(): Promise<void> {

@@ -34,12 +34,20 @@ async function encryptSelection(
 
   let replacement: string;
   if (usePassphrase) {
-    const passphrase = await promptForPassphrase(plugin.app);
+    let passphrase = plugin.passphraseCache.getPassphrases()[0];
     if (!passphrase) {
-      return;
+      const entered = await promptForPassphrase(plugin.app);
+      if (!entered) {
+        return;
+      }
+      passphrase = entered;
     }
     replacement = secureBlock(
       await encryptToArmoredWithPassphrase(plaintext, passphrase),
+    );
+    plugin.passphraseCache.add(
+      passphrase,
+      plugin.settings.passphraseCacheMinutes,
     );
   } else {
     const material = await plugin.refreshKeyMaterial();
