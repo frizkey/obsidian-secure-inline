@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEVICE_IDENTITY_SECRET_ID,
+  getDeviceRecipient,
   importDeviceIdentity,
   isAgeIdentity,
 } from "../src/device-identity";
@@ -25,6 +26,19 @@ describe("isAgeIdentity", () => {
     expect(isAgeIdentity(identity)).toBe(true);
     expect(isAgeIdentity("age1qqqq")).toBe(false);
     expect(isAgeIdentity("hello")).toBe(false);
+  });
+});
+
+describe("getDeviceRecipient", () => {
+  it("treats an empty-string secret as no identity", async () => {
+    const secrets = new Map([[DEVICE_IDENTITY_SECRET_ID, ""]]);
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      deviceIdentitySecretName: DEVICE_IDENTITY_SECRET_ID,
+    };
+    await expect(
+      getDeviceRecipient(appWithSecrets(secrets), settings),
+    ).resolves.toBeNull();
   });
 });
 

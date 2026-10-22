@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   ageFileName,
+  availablePath,
   decryptAgeBytes,
   decryptAgeBytesWithPassphrase,
+  decryptAgeBytesWithPassphrases,
   encryptBytesToAge,
   previewKindForExtension,
   sourceFileName,
@@ -32,6 +34,26 @@ describe("secure-file helpers", () => {
     await expect(decryptAgeBytes(cipher, [identity])).resolves.toEqual(data);
   });
 
+  it("availablePath suffixes collisions and handles vault root", async () => {
+    const no = async () => false;
+    await expect(availablePath(no, "docs", "x.png")).resolves.toBe(
+      "docs/x.png",
+    );
+    await expect(availablePath(no, "/", "x.png")).resolves.toBe("x.png");
+    await expect(availablePath(no, "", "x.png")).resolves.toBe("x.png");
+
+    const one = async (p: string) => p === "x.png";
+    await expect(availablePath(one, "/", "x.png")).resolves.toBe(
+      "x-decrypted.png",
+    );
+
+    const two = async (p: string) =>
+      p === "x.png" || p === "x-decrypted.png";
+    await expect(availablePath(two, "/", "x.png")).resolves.toBe(
+      "x-decrypted-2.png",
+    );
+  });
+
   it("decrypts with a passphrase fallback", { timeout: 30000 }, async () => {
     const encrypter = new age.Encrypter();
     encrypter.setPassphrase("pw");
@@ -43,5 +65,11 @@ describe("secure-file helpers", () => {
     await expect(
       decryptAgeBytesWithPassphrase(cipher, "pw"),
     ).resolves.toEqual(data);
+    await expect(
+      decryptAgeBytesWithPassphrases(cipher, ["nope", "pw"]),
+    ).resolves.toEqual(data);
+    await expect(
+      decryptAgeBytesWithPassphrases(cipher, ["nope"]),
+    ).resolves.toBeNull();
   });
 });

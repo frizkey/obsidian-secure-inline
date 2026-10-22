@@ -7,6 +7,8 @@ import {
 } from "obsidian";
 
 import type SecureInlinePlugin from "./main";
+import { isAgeArmored } from "./crypto";
+import { decryptSecret } from "./decrypt";
 import {
   ensureDeviceIdentity,
   exportDeviceIdentity,
@@ -150,16 +152,28 @@ export class SecureInlineSettingTab extends PluginSettingTab {
         button.setButtonText("Import").onClick(async () => {
           const entered = await promptForText(
             this.app,
-            "Paste AGE-SECRET-KEY-1… identity",
+            "Paste identity — AGE-SECRET-KEY-1… or passphrase armor",
             "Import",
           );
           if (!entered) {
             return;
           }
+          let identity = entered;
+          if (isAgeArmored(entered)) {
+            const decrypted = await decryptSecret(
+              this.plugin,
+              entered,
+              "armored",
+            );
+            if (!decrypted) {
+              return;
+            }
+            identity = decrypted;
+          }
           const result = await importDeviceIdentity(
             this.app,
             settings,
-            entered,
+            identity,
           );
           if (!result.ok) {
             new Notice(

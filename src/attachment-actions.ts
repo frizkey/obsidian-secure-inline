@@ -3,8 +3,10 @@ import { Notice, TFile } from "obsidian";
 import type SecureInlinePlugin from "./main";
 import { promptForPassphrase } from "./passphrase-modal";
 import {
+  availablePath,
   decryptAgeBytes,
   decryptAgeBytesWithPassphrase,
+  decryptAgeBytesWithPassphrases,
   encryptBytesToAge,
   sourceFileName,
 } from "./secure-file";
@@ -21,11 +23,23 @@ export async function decryptFileBytes(
       throw error;
     }
   }
+  const cached = await decryptAgeBytesWithPassphrases(
+    data,
+    plugin.passphraseCache.getPassphrases(),
+  );
+  if (cached !== null) {
+    return cached;
+  }
   const passphrase = await promptForPassphrase(plugin.app);
   if (!passphrase) {
     return null;
   }
-  return decryptAgeBytesWithPassphrase(data, passphrase);
+  const plain = await decryptAgeBytesWithPassphrase(data, passphrase);
+  plugin.passphraseCache.add(
+    passphrase,
+    plugin.settings.passphraseCacheMinutes,
+  );
+  return plain;
 }
 
 export async function targetPath(
@@ -34,14 +48,11 @@ export async function targetPath(
 ): Promise<string> {
   const dir = file.parent?.path ?? "";
   const source = sourceFileName(file.name) ?? `${file.name}.decrypted`;
-  const dot = source.lastIndexOf(".");
-  const stem = dot > 0 ? source.slice(0, dot) : source;
-  const ext = dot > 0 ? source.slice(dot) : "";
-  let candidate = `${dir}/${source}`.replace(/^\//, "");
-  while (await plugin.app.vault.adapter.exists(candidate)) {
-    candidate = `${dir}/${stem}-decrypted${ext}`.replace(/^\//, "");
-  }
-  return candidate;
+  return availablePath(
+    (path) => plugin.app.vault.adapter.exists(path),
+    dir,
+    source,
+  );
 }
 
 export function registerAttachmentActions(
@@ -92,6 +103,11 @@ export function registerAttachmentActions(
                 new Notice("No age recipients configured");
                 return;
               }
+              const out = `${target.path}.age`;
+              if (await plugin.app.vault.adapter.exists(out)) {
+                new Notice(`${out} already exists; not overwriting`);
+                return;
+              }
               try {
                 const data = new Uint8Array(
                   await plugin.app.vault.adapter.readBinary(target.path),
@@ -100,7 +116,6 @@ export function registerAttachmentActions(
                   data,
                   material.recipients,
                 );
-                const out = `${target.path}.age`;
                 await plugin.app.vault.adapter.writeBinary(
                   out,
                   cipher.buffer as ArrayBuffer,
