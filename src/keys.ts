@@ -9,7 +9,7 @@ export interface KeyMaterial {
   warnings: string[];
 }
 
-const AGE_IDENTITY_RE = /^AGE-SECRET-KEY-1[0-9A-Z]+$/;
+export const AGE_IDENTITY_RE = /^AGE-SECRET-KEY-1[0-9A-Z]+$/;
 const AGE_PLUGIN_RE = /^AGE-PLUGIN-/;
 const UNSUPPORTED_AGE_LINE_RE = /^AGE-[A-Z0-9-]+/;
 const AGE_RECIPIENT_RE = /^age1[02-9ac-hj-np-z]+$/;

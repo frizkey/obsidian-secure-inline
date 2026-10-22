@@ -1,6 +1,7 @@
 export interface SecureInlineSettings {
   keysFilePath: string;
   extraRecipients: string;
+  recipientLabels: string;
   deviceIdentitySecretName: string;
   revealSeconds: number;
   inlineTokenMaxChars: number;
@@ -13,6 +14,7 @@ export interface SecureInlineSettings {
 export const DEFAULT_SETTINGS: SecureInlineSettings = {
   keysFilePath: "~/.config/age/keys.txt",
   extraRecipients: "",
+  recipientLabels: "",
   deviceIdentitySecretName: "",
   revealSeconds: 30,
   inlineTokenMaxChars: 80,
