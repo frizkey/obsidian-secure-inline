@@ -1,5 +1,7 @@
 import { Plugin } from "obsidian";
 
+import { AGE_FILE_VIEW, AgeFileView } from "./age-file-view";
+import { registerAttachmentActions } from "./attachment-actions";
 import { registerAutoEncrypt } from "./auto-encrypt";
 import { PassphraseCache } from "./passphrase-cache";
 import { registerCommands } from "./commands";
@@ -30,6 +32,9 @@ export default class SecureInlinePlugin extends Plugin {
     registerInlineProcessor(this);
     registerLivePreview(this);
     registerAutoEncrypt(this);
+    this.registerView(AGE_FILE_VIEW, (leaf) => new AgeFileView(leaf, this));
+    this.registerExtensions(["age"], AGE_FILE_VIEW);
+    registerAttachmentActions(this);
     this.addSettingTab(new SecureInlineSettingTab(this.app, this));
   }
 
