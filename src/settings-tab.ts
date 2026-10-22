@@ -194,6 +194,19 @@ export class SecureInlineSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           }),
       );
+
+    new Setting(containerEl)
+      .setName("Session passphrase cache minutes")
+      .setDesc("Tries remembered passphrases before prompting. 0 disables; entries are memory-only and cleared on exit.")
+      .addText((text) =>
+        text
+          .setPlaceholder("15")
+          .setValue(String(settings.passphraseCacheMinutes))
+          .onChange(async (value) => {
+            settings.passphraseCacheMinutes = Math.max(0, Number(value) || 0);
+            await this.plugin.saveSettings();
+          }),
+      );
   }
 
   private addHeading(containerEl: HTMLElement, text: string): void {

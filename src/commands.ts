@@ -248,6 +248,15 @@ export function registerCommands(plugin: SecureInlinePlugin): void {
   });
 
   plugin.addCommand({
+    id: "secure-inline-lock-passphrase-cache",
+    name: "Lock passphrase cache",
+    callback: () => {
+      plugin.passphraseCache.clear();
+      new Notice("Passphrase cache cleared");
+    },
+  });
+
+  plugin.addCommand({
     id: "secure-inline-toggle-global-reveal",
     name: "Toggle global reveal",
     callback: () => {

@@ -26,6 +26,7 @@ describe("settings", () => {
     expect(DEFAULT_SETTINGS.revealSeconds).toBe(30);
     expect(DEFAULT_SETTINGS.inlineTokenMaxChars).toBe(80);
     expect(DEFAULT_SETTINGS.clipboardClearSeconds).toBe(0);
+    expect(DEFAULT_SETTINGS.passphraseCacheMinutes).toBe(15);
     expect(DEFAULT_SETTINGS.inlineRevealOnFocus).toBe(true);
     expect(DEFAULT_SETTINGS.autoEncryptPlaintextBlocks).toBe(true);
   });
