@@ -81,8 +81,7 @@ class PassphraseModal extends Modal {
     input.addClass("secure-inline-prompt-input");
     input.placeholder = "Passphrase";
     input.addEventListener("keydown", (event) => {
-      const keyEvent = event as KeyboardEvent;
-      if (keyEvent.key === "Enter") {
+      if (event.key === "Enter") {
         event.preventDefault();
         this.submit(input.value);
       }
