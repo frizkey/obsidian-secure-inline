@@ -27,7 +27,7 @@ export class SecureInlineSettingTab extends PluginSettingTab {
 
     containerEl.empty();
     containerEl.addClass("secure-inline-settings");
-    containerEl.createEl("h2", { text: "Secure Inline" });
+    new Setting(containerEl).setName("Secure Inline").setHeading();
     containerEl.createEl("p", {
       text: "Encrypt sensitive note text with age. Private identities stay in SecretStorage or your desktop keys file.",
       cls: "secure-inline-settings-intro",
@@ -197,10 +197,7 @@ export class SecureInlineSettingTab extends PluginSettingTab {
   }
 
   private addHeading(containerEl: HTMLElement, text: string): void {
-    containerEl.createEl("h3", {
-      text,
-      cls: "secure-inline-settings-heading",
-    });
+    new Setting(containerEl).setName(text).setHeading();
   }
 
   private async renderKeyHealth(descEl: HTMLElement): Promise<void> {

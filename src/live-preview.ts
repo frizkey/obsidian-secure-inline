@@ -49,7 +49,7 @@ class SecureTokenWidget extends WidgetType {
   }
 
   toDOM(): HTMLElement {
-    const span = document.createElement("span");
+    const span = createSpan();
     span.addClass("secure-inline", "secure-inline-live");
     attachTokenBehavior(this.plugin, span, this.token, LOCKED_LABEL, {
       revealOnAttach: this.revealOnFocus || this.plugin.revealAll,
@@ -79,7 +79,7 @@ class SecureBlockWidget extends WidgetType {
   }
 
   toDOM(): HTMLElement {
-    const el = document.createElement("div");
+    const el = createDiv();
     el.addClass("secure-inline-live-block");
     renderSecureBlock(this.plugin, this.armored, el);
     return el;
@@ -106,7 +106,7 @@ class SecurePropertiesWidget extends WidgetType {
   }
 
   toDOM(): HTMLElement {
-    const el = document.createElement("div");
+    const el = createDiv();
     renderSecureProperties(this.plugin, this.content, el);
     return el;
   }

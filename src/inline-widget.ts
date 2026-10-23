@@ -211,12 +211,12 @@ export function registerInlineProcessor(
       if (parts.length === 0) {
         continue;
       }
-      const fragment = document.createDocumentFragment();
+      const fragment = createFragment();
       for (const part of parts) {
         if (typeof part === "string") {
           fragment.appendChild(document.createTextNode(part));
         } else {
-          const span = document.createElement("span");
+          const span = createSpan();
           span.addClass("secure-inline");
           attachTokenBehavior(plugin, span, part.token, LOCKED_LABEL);
           fragment.appendChild(span);
