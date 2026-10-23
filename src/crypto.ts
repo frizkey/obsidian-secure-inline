@@ -1,6 +1,11 @@
 import * as age from "age-encryption";
 
 export const INLINE_TOKEN_PREFIX = "sec:v1:";
+const ARMOR_BEGIN = "-----BEGIN AGE ENCRYPTED FILE-----";
+
+export function isAgeArmored(value: string): boolean {
+  return value.trimStart().startsWith(ARMOR_BEGIN);
+}
 
 const BASE64_URL_RE = /^[A-Za-z0-9_-]+$/;
 

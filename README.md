@@ -25,6 +25,10 @@ Obsidian plugin for encrypting sensitive text directly inside notes with interop
 - Sweep a note for pending plaintext secure blocks with an explicit command.
 - Read native age X25519 identities and recipients on desktop.
 - Store a generated mobile device identity in Obsidian SecretStorage.
+- Import or export a device identity (passphrase-armored) so phone and desktop can share one identity.
+- Label recipients in settings for a readable key-health list.
+- Remember decrypt passphrases for the session — no re-prompt per secret.
+- Encrypt any attachment to a `.age` sidecar; preview or save decrypted copies in-app, or `age -d file.ext.age` on the CLI.
 - Keep interoperability with the `age` CLI.
 
 ## Formats
@@ -88,6 +92,10 @@ Copy that public recipient into **Extra recipients** on other devices, or into a
 
 `data.json` stores only the SecretStorage secret name. It never stores the private identity.
 
+### Moving an identity between devices
+
+In **Device identity** settings, **Export** asks for a passphrase and copies an age-armored `AGE-SECRET-KEY-1…` to the clipboard. On the other device, **Import** accepts the decrypted identity (or a pasted raw `AGE-SECRET-KEY-1…`). The exported armor contains the private key — treat it like the secret it protects.
+
 ### Extra recipients
 
 Add one `age1...` recipient per line in settings. These recipients are merged with public recipients found in `keys.txt` and the generated device identity recipient.
@@ -112,6 +120,13 @@ Add one `age1...` recipient per line in settings. These recipients are merged wi
 - Empty fences, empty property values, existing `sec:v1:` values, and blocks already containing `-----BEGIN AGE ENCRYPTED FILE-----` are skipped.
 - If no recipients are configured or the block changes during encryption, plaintext is left untouched.
 
+### Attachments
+
+- Right-click any file in the file explorer and choose **Encrypt to .age** to write a binary age ciphertext sidecar (`photo.png` → `photo.png.age`).
+- `.age` files open in a dedicated view: **Unlock & preview** renders images and text in place; any file can be saved decrypted via **Save decrypted copy**.
+- Right-click an `.age` file and choose **Decrypt to source file** to write the original back (name collisions get a `-decrypted` suffix).
+- Sidecars are standard age ciphertext — `age -d -i keys.txt file.png.age` recovers the original outside Obsidian. Filenames stay cleartext.
+
 ### Decrypt
 
 - In Reading mode, click a `secure`/`age` block to reveal it.
@@ -120,6 +135,7 @@ Add one `age1...` recipient per line in settings. These recipients are merged wi
 - Run **Secure Inline: Toggle global reveal**, or right-click the editor and choose **Reveal all secrets**, to reveal every rendered secret for the session.
 - With **Reveal inline tokens on focus** enabled, placing the cursor inside a Live Preview token displays `sec:v1:<plaintext>` without changing the file.
 - Ctrl/Cmd-click a locked inline token or secure block to copy plaintext and reveal it.
+- Passphrases are remembered in memory for the configured minutes (default 15) — later secrets decrypt without re-prompting. Run **Secure Inline: Lock passphrase cache** to clear it early.
 - Click **Copy** next to a revealed value to copy it.
 - Click **Relock**, or use the global toggle again, to hide plaintext. Auto-relock is suspended while global reveal is enabled.
 - If no configured identity matches, the plugin prompts for a passphrase and retries passphrase decryption.
@@ -165,6 +181,8 @@ For Android, run the installer against the synced vault directory before opening
 - Clipboard clearing is optional and only clears the clipboard if it still contains the same plaintext.
 - Plaintext typed inside a `secure`/`age`/`secure-properties` fence can remain in the note until the cursor leaves the block or the sweep command runs.
 - `secure-properties` intentionally stores keys in plaintext; values are stored as ciphertext after encryption.
+- Passphrases are cached in memory only for the configured minutes and cleared on exit or via **Lock passphrase cache**.
+- `.age` sidecar filenames stay cleartext; only contents are encrypted.
 
 ## Development
 

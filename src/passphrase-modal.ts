@@ -8,6 +8,7 @@ class PromptModal extends Modal {
     private title: string,
     private inputType: "password" | "textarea",
     private resolve: (value: string | null) => void,
+    private submitLabel = "Encrypt text",
   ) {
     super(app);
   }
@@ -30,7 +31,7 @@ class PromptModal extends Modal {
     new Setting(this.contentEl)
       .addButton((button) =>
         button
-          .setButtonText("Encrypt text")
+          .setButtonText(this.submitLabel)
           .setCta()
           .onClick(() => this.submit(input.value)),
       )
@@ -121,6 +122,16 @@ class PassphraseModal extends Modal {
 export function promptForPlaintext(app: App): Promise<string | null> {
   return new Promise((resolve) => {
     new PromptModal(app, "Encrypt text", "textarea", resolve).open();
+  });
+}
+
+export function promptForText(
+  app: App,
+  title: string,
+  submitLabel = "Submit",
+): Promise<string | null> {
+  return new Promise((resolve) => {
+    new PromptModal(app, title, "textarea", resolve, submitLabel).open();
   });
 }
 

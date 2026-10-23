@@ -34,12 +34,20 @@ async function encryptSelection(
 
   let replacement: string;
   if (usePassphrase) {
-    const passphrase = await promptForPassphrase(plugin.app);
+    let passphrase = plugin.passphraseCache.getPassphrases()[0];
     if (!passphrase) {
-      return;
+      const entered = await promptForPassphrase(plugin.app);
+      if (!entered) {
+        return;
+      }
+      passphrase = entered;
     }
     replacement = secureBlock(
       await encryptToArmoredWithPassphrase(plaintext, passphrase),
+    );
+    plugin.passphraseCache.add(
+      passphrase,
+      plugin.settings.passphraseCacheMinutes,
     );
   } else {
     const material = await plugin.refreshKeyMaterial();
@@ -236,6 +244,15 @@ export function registerCommands(plugin: SecureInlinePlugin): void {
     name: "Encrypt plaintext secure blocks",
     editorCallback: (editor) => {
       void encryptPendingBlocks(plugin, editor);
+    },
+  });
+
+  plugin.addCommand({
+    id: "lock-passphrase-cache",
+    name: "Lock passphrase cache",
+    callback: () => {
+      plugin.passphraseCache.clear();
+      new Notice("Passphrase cache cleared");
     },
   });
 

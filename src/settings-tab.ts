@@ -7,10 +7,16 @@ import {
 } from "obsidian";
 
 import type SecureInlinePlugin from "./main";
+import { isAgeArmored } from "./crypto";
+import { decryptSecret } from "./decrypt";
 import {
   ensureDeviceIdentity,
+  exportDeviceIdentity,
   getDeviceRecipient,
+  importDeviceIdentity,
 } from "./device-identity";
+import { promptForPassphrase, promptForText } from "./passphrase-modal";
+import { parseRecipientLabels } from "./recipient-labels";
 
 export class SecureInlineSettingTab extends PluginSettingTab {
   plugin: SecureInlinePlugin;
@@ -76,6 +82,22 @@ export class SecureInlineSettingTab extends PluginSettingTab {
         text.inputEl.addClass("secure-inline-input");
       });
 
+    new Setting(containerEl)
+      .setName("Recipient labels")
+      .setDesc("Optional. One per line: age1... = label. Shown in key health.")
+      .addTextArea((text) => {
+        text
+          .setPlaceholder("age1... = phone")
+          .setValue(settings.recipientLabels)
+          .onChange(async (value) => {
+            settings.recipientLabels = value;
+            await this.plugin.saveSettings();
+            await this.renderKeyHealth(keyHealth.descEl);
+          });
+        text.inputEl.rows = 3;
+        text.inputEl.addClass("secure-inline-input");
+      });
+
     this.addHeading(containerEl, "Device identity");
 
     new Setting(containerEl)
@@ -124,6 +146,72 @@ export class SecureInlineSettingTab extends PluginSettingTab {
           }
           await navigator.clipboard.writeText(recipient);
           new Notice("Recipient copied");
+        }),
+      )
+      .addButton((button) =>
+        button.setButtonText("Import").onClick(async () => {
+          const entered = await promptForText(
+            this.app,
+            "Paste identity — AGE-SECRET-KEY-1… or passphrase armor",
+            "Import",
+          );
+          if (!entered) {
+            return;
+          }
+          let identity = entered;
+          if (isAgeArmored(entered)) {
+            const decrypted = await decryptSecret(
+              this.plugin,
+              entered,
+              "armored",
+            );
+            if (!decrypted) {
+              return;
+            }
+            identity = decrypted;
+          }
+          const result = await importDeviceIdentity(
+            this.app,
+            settings,
+            identity,
+          );
+          if (!result.ok) {
+            new Notice(
+              result.reason === "is-recipient"
+                ? "That is a public recipient (age1...), not a private identity"
+                : result.reason === "storage-unavailable"
+                  ? "SecretStorage unavailable"
+                  : "Not a valid age identity",
+            );
+            return;
+          }
+          await this.plugin.saveSettings();
+          await Promise.all([
+            this.renderKeyHealth(keyHealth.descEl),
+            this.renderDeviceRecipient(recipientSetting.descEl),
+          ]);
+          new Notice("Identity imported");
+        }),
+      )
+      .addButton((button) =>
+        button.setButtonText("Export").onClick(async () => {
+          const passphrase = await promptForPassphrase(this.app);
+          if (!passphrase) {
+            return;
+          }
+          const armor = await exportDeviceIdentity(
+            this.app,
+            settings,
+            passphrase,
+          );
+          if (!armor) {
+            new Notice("No device identity available");
+            return;
+          }
+          await navigator.clipboard.writeText(armor);
+          new Notice(
+            "Identity exported to clipboard — it decrypts only with that passphrase",
+          );
         }),
       );
     void this.renderDeviceRecipient(recipientSetting.descEl);
@@ -194,6 +282,19 @@ export class SecureInlineSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           }),
       );
+
+    new Setting(containerEl)
+      .setName("Session passphrase cache minutes")
+      .setDesc("Tries remembered passphrases before prompting. 0 disables; entries are memory-only and cleared on exit.")
+      .addText((text) =>
+        text
+          .setPlaceholder("15")
+          .setValue(String(settings.passphraseCacheMinutes))
+          .onChange(async (value) => {
+            settings.passphraseCacheMinutes = Math.max(0, Number(value) || 0);
+            await this.plugin.saveSettings();
+          }),
+      );
   }
 
   private addHeading(containerEl: HTMLElement, text: string): void {
@@ -232,6 +333,27 @@ export class SecureInlineSettingTab extends PluginSettingTab {
         cls: "secure-inline-status-muted",
       });
     }
+
+    const labels = parseRecipientLabels(this.plugin.settings.recipientLabels);
+    const shown = material.recipients.slice(0, 10);
+    for (const recipient of shown) {
+      const row = descEl.createDiv({ cls: "secure-inline-status-muted" });
+      row.createEl("code", {
+        text: recipient,
+        cls: "secure-inline-recipient",
+      });
+      const label = labels.get(recipient);
+      if (label) {
+        row.createSpan({ text: ` — ${label}` });
+      }
+    }
+    if (material.recipients.length > shown.length) {
+      descEl.createDiv({
+        text: `+${material.recipients.length - shown.length} more`,
+        cls: "secure-inline-status-muted",
+      });
+    }
+
     for (const warning of material.warnings) {
       descEl.createDiv({
         text: warning,

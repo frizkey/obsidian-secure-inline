@@ -307,6 +307,16 @@
   white-space: normal;
 }
 
+.secure-inline-age-view {
+  padding: 1rem;
+}
+
+.secure-inline-age-preview {
+  display: block;
+  max-height: 30rem;
+  max-width: 100%;
+}
+
 @media (max-width: 600px) {
   .secure-inline-action-label {
     display: none;
