@@ -76,10 +76,10 @@ export function renderSecureBlock(
   const renderPlaintext = (plaintext: string): void => {
     el.empty();
     el.addClass("secure-inline-block");
-    const header = el.createEl("div", { cls: "secure-inline-block-header" });
+    const header = el.createDiv({ cls: "secure-inline-block-header" });
     const status = header.createSpan({ cls: "secure-inline-block-status" });
     renderStatusContent(status, "Revealed secret", "eye");
-    const controls = header.createEl("div", {
+    const controls = header.createDiv({
       cls: "secure-inline-controls",
     });
     const copy = controls.createEl("button", {

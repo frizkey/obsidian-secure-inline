@@ -75,7 +75,7 @@ export async function loadKeyMaterial(
     warnings: [],
   };
 
-  if (Platform.isDesktopApp) {
+  if (Platform.isDesktop) {
     try {
       const fs = await import("node:fs");
       const os = await import("node:os");

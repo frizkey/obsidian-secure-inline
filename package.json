@@ -1,6 +1,6 @@
 {
   "name": "obsidian-secure-inline",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "description": "Inline age-encrypted secrets in notes.",
   "main": "main.js",
@@ -19,6 +19,8 @@
     "@codemirror/view": "6.43.13",
     "@types/node": "26.6.5",
     "esbuild": "0.28.2",
+    "eslint": "^9.39.5",
+    "eslint-plugin-obsidianmd": "^0.4.2",
     "obsidian": "1.14.4",
     "typescript": "5.9.3",
     "vitest": "2.1.9"
