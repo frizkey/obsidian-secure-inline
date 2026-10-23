@@ -1,5 +1,5 @@
 import * as age from "age-encryption";
-import type { App } from "obsidian";
+import { Platform, type App } from "obsidian";
 
 import type { SecureInlineSettings } from "./settings";
 
@@ -21,26 +21,11 @@ function pushUnique(values: string[], value: string): void {
   }
 }
 
-function isDesktopApp(): boolean {
-  if (typeof require !== "function") {
-    return false;
-  }
-  try {
-    const obsidian = require("obsidian") as {
-      Platform?: { isDesktopApp?: boolean };
-    };
-    return obsidian.Platform?.isDesktopApp === true;
-  } catch {
-    return false;
-  }
-}
-
-function expandPath(path: string): string {
+function expandPath(path: string, homedir: string): string {
   if (!path.startsWith("~")) {
     return path;
   }
-  const os = require("os") as typeof import("node:os");
-  return path === "~" ? os.homedir() : os.homedir() + path.slice(1);
+  return path === "~" ? homedir : homedir + path.slice(1);
 }
 
 export function parseKeysFile(text: string): KeyMaterial {
@@ -90,10 +75,11 @@ export async function loadKeyMaterial(
     warnings: [],
   };
 
-  if (isDesktopApp()) {
+  if (Platform.isDesktopApp) {
     try {
-      const fs = require("fs") as typeof import("node:fs");
-      const keysPath = expandPath(settings.keysFilePath);
+      const fs = await import("node:fs");
+      const os = await import("node:os");
+      const keysPath = expandPath(settings.keysFilePath, os.homedir());
       const parsed = parseKeysFile(fs.readFileSync(keysPath, "utf8"));
       material.identities.push(...parsed.identities);
       material.recipients.push(...parsed.recipients);

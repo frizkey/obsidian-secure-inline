@@ -200,7 +200,7 @@ function refreshSecureViews(plugin: SecureInlinePlugin): void {
       view.contentEl
         .querySelectorAll<HTMLElement>(selector)
         .forEach((element) => {
-          if (element instanceof HTMLButtonElement && element.disabled) {
+          if (element.instanceOf(HTMLButtonElement) && element.disabled) {
             return;
           }
           element.click();
@@ -224,7 +224,7 @@ function setRevealAll(plugin: SecureInlinePlugin, revealAll: boolean): void {
 
 export function registerCommands(plugin: SecureInlinePlugin): void {
   plugin.addCommand({
-    id: "secure-inline-encrypt-selection",
+    id: "encrypt-selection",
     name: "Encrypt selection",
     editorCallback: (editor) => {
       void encryptSelection(plugin, editor, false);
@@ -232,7 +232,7 @@ export function registerCommands(plugin: SecureInlinePlugin): void {
   });
 
   plugin.addCommand({
-    id: "secure-inline-encrypt-selection-passphrase",
+    id: "encrypt-selection-passphrase",
     name: "Encrypt selection with passphrase",
     editorCallback: (editor) => {
       void encryptSelection(plugin, editor, true);
@@ -240,7 +240,7 @@ export function registerCommands(plugin: SecureInlinePlugin): void {
   });
 
   plugin.addCommand({
-    id: "secure-inline-encrypt-pending-blocks",
+    id: "encrypt-pending-blocks",
     name: "Encrypt plaintext secure blocks",
     editorCallback: (editor) => {
       void encryptPendingBlocks(plugin, editor);
@@ -248,7 +248,7 @@ export function registerCommands(plugin: SecureInlinePlugin): void {
   });
 
   plugin.addCommand({
-    id: "secure-inline-lock-passphrase-cache",
+    id: "lock-passphrase-cache",
     name: "Lock passphrase cache",
     callback: () => {
       plugin.passphraseCache.clear();
@@ -257,7 +257,7 @@ export function registerCommands(plugin: SecureInlinePlugin): void {
   });
 
   plugin.addCommand({
-    id: "secure-inline-toggle-global-reveal",
+    id: "toggle-global-reveal",
     name: "Toggle global reveal",
     callback: () => {
       setRevealAll(plugin, !plugin.revealAll);

@@ -43,10 +43,10 @@ export default class SecureInlinePlugin extends Plugin {
   }
 
   async loadSettings(): Promise<void> {
-    this.settings = {
-      ...DEFAULT_SETTINGS,
-      ...(await this.loadData()),
-    };
+    const data = (await this.loadData()) as
+      | Partial<SecureInlineSettings>
+      | null;
+    this.settings = { ...DEFAULT_SETTINGS, ...data };
   }
 
   async saveSettings(): Promise<void> {

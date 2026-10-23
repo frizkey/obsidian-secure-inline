@@ -77,13 +77,23 @@ export function registerAutoEncrypt(plugin: SecureInlinePlugin): void {
           this.pending = null;
           return;
         }
-        if (!update.selectionSet && !update.docChanged) {
+        if (
+          !update.selectionSet &&
+          !update.docChanged &&
+          !update.focusChanged
+        ) {
           return;
         }
 
+        const lostFocus = update.focusChanged && !update.view.hasFocus;
         if (
           this.pending &&
-          !selectionIntersects(update.state, this.pending.from, this.pending.to)
+          (lostFocus ||
+            !selectionIntersects(
+              update.state,
+              this.pending.from,
+              this.pending.to,
+            ))
         ) {
           const captured = this.pending;
           this.pending = null;
@@ -141,7 +151,10 @@ export function registerAutoEncrypt(plugin: SecureInlinePlugin): void {
           new Notice("Secure block changed; encryption skipped");
           return;
         }
-        if (selectionIntersects(view.state, target.from, target.to)) {
+        if (
+          view.hasFocus &&
+          selectionIntersects(view.state, target.from, target.to)
+        ) {
           return;
         }
         view.dispatch({
