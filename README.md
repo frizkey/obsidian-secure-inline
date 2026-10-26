@@ -140,6 +140,14 @@ Add one `age1...` recipient per line in settings. These recipients are merged wi
 - Click **Relock**, or use the global toggle again, to hide plaintext. Auto-relock is suspended while global reveal is enabled.
 - If no configured identity matches, the plugin prompts for a passphrase and retries passphrase decryption.
 
+### Re-encrypt / rotate recipients
+
+- age recipient lists are fixed at encryption time. After adding or removing a recipient (keys file, device identity, or **Extra recipients**), existing secrets keep their original recipient set until re-encrypted.
+- Run **Secure Inline: Re-encrypt secrets for current recipients** to rewrite every secret in the active note to the current recipient set.
+- Run **Secure Inline: Re-encrypt secrets in vault** to do the same across every note — a dry-run preview shows what will change, progress shows in the status bar, and an interrupted run resumes where it stopped.
+- Both commands must run on a device that already holds an identity able to decrypt the secrets. Secrets it cannot decrypt (passphrase-protected or encrypted to foreign recipients) are skipped and counted; passphrase secrets can optionally be converted to recipients after entering the passphrase once.
+- Re-encrypting to a smaller set also revokes: remove a recipient, re-encrypt, and that key can no longer decrypt the rewritten secrets. Secrets the plugin could not decrypt stay readable by their original recipients.
+
 ## age CLI interoperability
 
 A fenced block's contents are standard age ASCII armor. Extract the armor to a file and decrypt with:
