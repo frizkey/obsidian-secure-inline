@@ -84,8 +84,11 @@ export async function loadKeyMaterial(
       material.identities.push(...parsed.identities);
       material.recipients.push(...parsed.recipients);
       material.warnings.push(...parsed.warnings);
-    } catch {
-      material.warnings.push(`keys file unavailable: ${settings.keysFilePath}`);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      material.warnings.push(
+        `keys file unavailable: ${settings.keysFilePath} (${reason})`,
+      );
     }
   }
 
