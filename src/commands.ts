@@ -12,6 +12,7 @@ import {
   encryptPendingPlaintext,
   loadEncryptionRecipients,
 } from "./pending-encrypt";
+import { planReencryption } from "./reencrypt";
 import { scanSecureFences } from "./secure-fences";
 import {
   encryptSecurePropertiesContent,
@@ -178,6 +179,61 @@ async function encryptPendingBlocks(
   }
 }
 
+async function reencryptSecrets(
+  plugin: SecureInlinePlugin,
+  editor: Editor,
+): Promise<void> {
+  const material = await plugin.refreshKeyMaterial();
+  for (const warning of material.warnings) {
+    new Notice(warning);
+  }
+  if (material.recipients.length === 0) {
+    new Notice("No age recipients configured");
+    return;
+  }
+
+  const plan = await planReencryption(
+    editor.getValue(),
+    material.identities,
+    material.recipients,
+  );
+  if (plan.replacements.length === 0) {
+    new Notice(
+      plan.skipped > 0
+        ? `No secrets re-encrypted; skipped ${plan.skipped} undecryptable`
+        : "No encrypted secrets found",
+    );
+    return;
+  }
+
+  let reencrypted = 0;
+  let skipped = plan.skipped;
+  for (const replacement of plan.replacements.sort(
+    (a, b) => b.from - a.from,
+  )) {
+    const current = editor.getValue();
+    if (current.slice(replacement.from, replacement.to) !== replacement.original) {
+      skipped += 1;
+      continue;
+    }
+    editor.replaceRange(
+      replacement.updated,
+      editor.offsetToPos(replacement.from),
+      editor.offsetToPos(replacement.to),
+    );
+    reencrypted += 1;
+  }
+
+  new Notice(`Re-encrypted ${reencrypted} secret${reencrypted === 1 ? "" : "s"}`);
+  if (skipped > 0) {
+    new Notice(
+      `Skipped ${skipped} undecryptable or changed secret${
+        skipped === 1 ? "" : "s"
+      }`,
+    );
+  }
+}
+
 function refreshSecureViews(plugin: SecureInlinePlugin): void {
   plugin.app.workspace.iterateAllLeaves((leaf) => {
     const view = leaf.view;
@@ -244,6 +300,14 @@ export function registerCommands(plugin: SecureInlinePlugin): void {
     name: "Encrypt plaintext secure blocks",
     editorCallback: (editor) => {
       void encryptPendingBlocks(plugin, editor);
+    },
+  });
+
+  plugin.addCommand({
+    id: "reencrypt-secrets",
+    name: "Re-encrypt secrets for current recipients",
+    editorCallback: (editor) => {
+      void reencryptSecrets(plugin, editor);
     },
   });
 
