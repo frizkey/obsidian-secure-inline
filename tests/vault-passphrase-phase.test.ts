@@ -28,9 +28,11 @@ function memoryIO(files: Record<string, string>): VaultFileIO & {
       }
       return value;
     },
-    async write(path, content) {
+    async write(path, transform) {
       writes.push(path);
-      map.set(path, content);
+      const result = transform(map.get(path) ?? "");
+      map.set(path, result.text);
+      return result;
     },
   };
 }

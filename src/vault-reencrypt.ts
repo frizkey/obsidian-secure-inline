@@ -2,25 +2,32 @@ import { encryptToArmored, encryptToInlineToken } from "./crypto";
 import { decryptWithPassphrases } from "./passphrase-decrypt";
 import {
   applyReencryptPlan,
+  applyReplacements,
   planReencryption,
+  type ApplyResult,
   type ReencryptFailure,
+  type ReencryptReplacement,
 } from "./reencrypt";
 
 export interface VaultFileIO {
   read(path: string): Promise<string>;
-  write(path: string, content: string): Promise<void>;
+  write(
+    path: string,
+    transform: (current: string) => ApplyResult,
+  ): Promise<ApplyResult>;
 }
 
 export interface VaultSweepOptions {
   dryRun?: boolean;
-  isCancelled(): boolean;
-  onFileDone?(path: string): Promise<void> | void;
-  yieldFn?(): Promise<void>;
+  isCancelled: () => boolean;
+  onFileDone?: (path: string) => Promise<void> | void;
+  yieldFn?: () => Promise<void>;
 }
 
 export interface VaultSweepResult {
   filesScanned: number;
   filesChanged: number;
+  filesFailed: number;
   reencrypted: number;
   skipped: number;
   failures: (ReencryptFailure & { path: string })[];
@@ -28,7 +35,7 @@ export interface VaultSweepResult {
 }
 
 const defaultYield = (): Promise<void> =>
-  new Promise((resolve) => setTimeout(resolve, 0));
+  new Promise((resolve) => globalThis.setTimeout(resolve, 0));
 
 export async function sweepVaultReencrypt(
   io: VaultFileIO,
@@ -41,6 +48,7 @@ export async function sweepVaultReencrypt(
   const result: VaultSweepResult = {
     filesScanned: 0,
     filesChanged: 0,
+    filesFailed: 0,
     reencrypted: 0,
     skipped: 0,
     failures: [],
@@ -52,23 +60,28 @@ export async function sweepVaultReencrypt(
       result.cancelled = true;
       break;
     }
-    const text = await io.read(path);
-    result.filesScanned += 1;
-    const plan = await planReencryption(text, identities, recipients);
-    result.skipped += plan.skipped;
-    for (const failure of plan.failures) {
-      result.failures.push({ ...failure, path });
-    }
-    if (!opts.dryRun && plan.replacements.length > 0) {
-      const applied = applyReencryptPlan(text, plan);
-      if (applied.applied > 0) {
-        await io.write(path, applied.text);
-        result.filesChanged += 1;
-        result.reencrypted += applied.applied;
-        result.skipped += applied.skippedExtra;
+    try {
+      const text = await io.read(path);
+      result.filesScanned += 1;
+      const plan = await planReencryption(text, identities, recipients);
+      result.skipped += plan.skipped;
+      for (const failure of plan.failures) {
+        result.failures.push({ ...failure, path });
       }
-    } else if (opts.dryRun) {
-      result.reencrypted += plan.replacements.length;
+      if (!opts.dryRun && plan.replacements.length > 0) {
+        const applied = await io.write(path, (current) =>
+          applyReencryptPlan(current, plan),
+        );
+        result.skipped += applied.skippedExtra;
+        if (applied.applied > 0) {
+          result.filesChanged += 1;
+          result.reencrypted += applied.applied;
+        }
+      } else if (opts.dryRun) {
+        result.reencrypted += plan.replacements.length;
+      }
+    } catch {
+      result.filesFailed += 1;
     }
     await opts.onFileDone?.(path);
     await yieldFn();
@@ -94,10 +107,9 @@ export async function reencryptFailuresWithPassphrase(
   let stillSkipped = 0;
   for (const [path, list] of byPath) {
     const text = await io.read(path);
-    let updated = text;
-    let dirty = false;
-    for (const failure of list.sort((a, b) => b.from - a.from)) {
-      if (updated.slice(failure.from, failure.to) !== failure.original) {
+    const replacements: ReencryptReplacement[] = [];
+    for (const failure of list) {
+      if (text.slice(failure.from, failure.to) !== failure.original) {
         stillSkipped += 1;
         continue;
       }
@@ -110,19 +122,22 @@ export async function reencryptFailuresWithPassphrase(
         stillSkipped += 1;
         continue;
       }
-      const replacement =
-        failure.format === "armored"
-          ? (await encryptToArmored(plaintext, recipients)).trim()
-          : await encryptToInlineToken(plaintext, recipients);
-      updated =
-        updated.slice(0, failure.from) +
-        replacement +
-        updated.slice(failure.to);
-      converted += 1;
-      dirty = true;
+      replacements.push({
+        from: failure.from,
+        to: failure.to,
+        original: failure.original,
+        updated:
+          failure.format === "armored"
+            ? (await encryptToArmored(plaintext, recipients)).trim()
+            : await encryptToInlineToken(plaintext, recipients),
+      });
     }
-    if (dirty) {
-      await io.write(path, updated);
+    if (replacements.length > 0) {
+      const applied = await io.write(path, (current) =>
+        applyReplacements(current, replacements),
+      );
+      converted += applied.applied;
+      stillSkipped += applied.skippedExtra;
     }
   }
   return { converted, stillSkipped };

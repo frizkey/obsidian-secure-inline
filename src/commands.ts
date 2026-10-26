@@ -13,6 +13,7 @@ import {
   loadEncryptionRecipients,
 } from "./pending-encrypt";
 import { applyReencryptPlan, planReencryption } from "./reencrypt";
+import { reencryptJobShouldPersist } from "./reencrypt-job";
 import { scanSecureFences } from "./secure-fences";
 import {
   encryptSecurePropertiesContent,
@@ -251,12 +252,17 @@ function buildVaultIO(plugin: SecureInlinePlugin): VaultFileIO {
       }
       return app.vault.cachedRead(file);
     },
-    async write(path, content) {
+    async write(path, transform) {
       const file = files.get(path);
       if (!file) {
         throw new Error(`file not found: ${path}`);
       }
-      await app.vault.process(file, () => content);
+      let outcome = { text: "", applied: 0, skippedExtra: 0 };
+      await app.vault.process(file, (current) => {
+        outcome = transform(current);
+        return outcome.text;
+      });
+      return outcome;
     },
   };
 }
@@ -299,11 +305,22 @@ async function reencryptVault(
     { dryRun: true, isCancelled: () => false },
   );
   if (preview.reencrypted === 0 && preview.failures.length === 0) {
-    notify("No encrypted secrets found in vault");
+    if (resume) {
+      await plugin.clearReencryptJob();
+      notify("Vault re-encryption already complete");
+    } else {
+      notify("No encrypted secrets found in vault");
+    }
     return;
   }
   new VaultReencryptModal(app, preview, () => {
-    void executeVaultReencrypt(plugin, io, resume);
+    executeVaultReencrypt(plugin, io, resume).catch((error: unknown) => {
+      new Notice(
+        `Re-encrypt failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    });
   }).open();
 }
 
@@ -337,13 +354,16 @@ async function executeVaultReencrypt(
 
     let stillSkipped = result.skipped - result.failures.length;
     let converted = 0;
-    if (result.failures.length > 0) {
+    if (!result.cancelled && result.failures.length > 0) {
       new Notice(
         `${result.failures.length} secret${
           result.failures.length === 1 ? "" : "s"
         } need a passphrase — entering one converts them to recipients`,
       );
-      const passphrase = await promptForPassphrase(app);
+      const passphrase = await promptForPassphrase(
+        app,
+        "Convert passphrase secrets to recipients",
+      );
       if (passphrase) {
         plugin.passphraseCache.add(
           passphrase,
@@ -363,7 +383,9 @@ async function executeVaultReencrypt(
       }
     }
 
-    await plugin.clearReencryptJob();
+    if (!reencryptJobShouldPersist(result.cancelled)) {
+      await plugin.clearReencryptJob();
+    }
     const parts = [
       `Re-encrypted ${result.reencrypted} secret${
         result.reencrypted === 1 ? "" : "s"
@@ -371,6 +393,9 @@ async function executeVaultReencrypt(
     ];
     if (stillSkipped > 0) {
       parts.push(`skipped ${stillSkipped}`);
+    }
+    if (result.filesFailed > 0) {
+      parts.push(`${result.filesFailed} file${result.filesFailed === 1 ? "" : "s"} failed`);
     }
     if (converted > 0) {
       parts.push(`converted ${converted}`);

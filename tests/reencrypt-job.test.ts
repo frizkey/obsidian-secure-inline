@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   markJobFileDone,
   normalizeReencryptJob,
+  reencryptJobShouldPersist,
   type ReencryptJob,
 } from "../src/reencrypt-job";
 
@@ -63,5 +64,12 @@ describe("markJobFileDone", () => {
       JSON.parse(JSON.stringify(job)),
     );
     expect(restored).toEqual(job);
+  });
+});
+
+describe("reencryptJobShouldPersist", () => {
+  it("keeps the journal when cancelled, clears when done", () => {
+    expect(reencryptJobShouldPersist(true)).toBe(true);
+    expect(reencryptJobShouldPersist(false)).toBe(false);
   });
 });

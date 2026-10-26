@@ -72,12 +72,13 @@ class PassphraseModal extends Modal {
   constructor(
     app: App,
     private resolve: (value: string | null) => void,
+    private title = "Secure passphrase",
   ) {
     super(app);
   }
 
   onOpen(): void {
-    this.titleEl.setText("Secure passphrase");
+    this.titleEl.setText(this.title);
     const input = this.contentEl.createEl("input", { type: "password" });
     input.addClass("secure-inline-prompt-input");
     input.placeholder = "Passphrase";
@@ -135,8 +136,11 @@ export function promptForText(
   });
 }
 
-export function promptForPassphrase(app: App): Promise<string | null> {
+export function promptForPassphrase(
+  app: App,
+  title?: string,
+): Promise<string | null> {
   return new Promise((resolve) => {
-    new PassphraseModal(app, resolve).open();
+    new PassphraseModal(app, resolve, title).open();
   });
 }

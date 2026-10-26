@@ -30,8 +30,10 @@ function makeDeps(opts: {
         }
         return value;
       },
-      async write(path, content) {
-        map.set(path, content);
+      async write(path, transform) {
+        const result = transform(map.get(path) ?? "");
+        map.set(path, result.text);
+        return result;
       },
     },
     refreshKeyMaterial: async () => opts.material,

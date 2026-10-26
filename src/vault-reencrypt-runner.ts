@@ -7,14 +7,14 @@ import {
 } from "./vault-reencrypt";
 
 export interface VaultReencryptDeps {
-  getMarkdownPaths(): string[] | Promise<string[]>;
+  getMarkdownPaths: () => string[] | Promise<string[]>;
   io: VaultFileIO;
-  refreshKeyMaterial(): Promise<KeyMaterial>;
-  getJob(): ReencryptJob | null;
-  saveJob(job: ReencryptJob): Promise<void> | void;
-  isCancelled?(): boolean;
-  onProgress?(filesDone: number, total: number): void;
-  notify?(message: string): void;
+  refreshKeyMaterial: () => Promise<KeyMaterial>;
+  getJob: () => ReencryptJob | null;
+  saveJob: (job: ReencryptJob) => Promise<void> | void;
+  isCancelled?: () => boolean;
+  onProgress?: (filesDone: number, total: number) => void;
+  notify?: (message: string) => void;
 }
 
 export async function runVaultReencrypt(
@@ -38,13 +38,13 @@ export async function runVaultReencrypt(
   const prior = deps.getJob();
   const resume =
     opts.resume === true && prior !== null && prior.status !== "done";
-  const doneSet = new Set(resume ? prior!.doneFiles : []);
+  const doneSet = new Set(resume ? prior.doneFiles : []);
 
   const allPaths = await deps.getMarkdownPaths();
   const paths = allPaths.filter((path) => !doneSet.has(path));
 
   const job: ReencryptJob = resume
-    ? { ...prior!, status: "running", doneFiles: [...prior!.doneFiles] }
+    ? { ...prior, status: "running", doneFiles: [...prior.doneFiles] }
     : {
         status: "running",
         startedAt: Date.now(),

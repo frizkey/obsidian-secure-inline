@@ -29,16 +29,20 @@ export interface ReencryptPlan {
   skipped: number;
 }
 
-export function applyReencryptPlan(
+export interface ApplyResult {
+  text: string;
+  applied: number;
+  skippedExtra: number;
+}
+
+export function applyReplacements(
   text: string,
-  plan: ReencryptPlan,
-): { text: string; applied: number; skippedExtra: number } {
+  replacements: ReencryptReplacement[],
+): ApplyResult {
   let applied = 0;
   let skippedExtra = 0;
   let updated = text;
-  for (const replacement of plan.replacements.sort(
-    (a, b) => b.from - a.from,
-  )) {
+  for (const replacement of replacements.sort((a, b) => b.from - a.from)) {
     if (updated.slice(replacement.from, replacement.to) !== replacement.original) {
       skippedExtra += 1;
       continue;
@@ -50,6 +54,13 @@ export function applyReencryptPlan(
     applied += 1;
   }
   return { text: updated, applied, skippedExtra };
+}
+
+export function applyReencryptPlan(
+  text: string,
+  plan: ReencryptPlan,
+): ApplyResult {
+  return applyReplacements(text, plan.replacements);
 }
 
 export async function planReencryption(

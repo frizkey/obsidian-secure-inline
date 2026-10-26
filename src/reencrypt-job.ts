@@ -30,7 +30,9 @@ export function normalizeReencryptJob(raw: unknown): ReencryptJob | null {
     status: candidate.status as ReencryptJob["status"],
     startedAt: candidate.startedAt,
     totalFiles: candidate.totalFiles,
-    doneFiles: [...candidate.doneFiles],
+    doneFiles: (candidate.doneFiles as unknown[]).filter(
+      (f): f is string => typeof f === "string",
+    ),
     reencrypted: candidate.reencrypted,
     skipped: candidate.skipped,
   };
@@ -40,4 +42,8 @@ export function markJobFileDone(job: ReencryptJob, path: string): void {
   if (!job.doneFiles.includes(path)) {
     job.doneFiles.push(path);
   }
+}
+
+export function reencryptJobShouldPersist(cancelled: boolean): boolean {
+  return cancelled;
 }
