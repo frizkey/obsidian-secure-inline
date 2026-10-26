@@ -381,6 +381,8 @@ async function executeVaultReencrypt(
       } else {
         stillSkipped += result.failures.length;
       }
+    } else {
+      stillSkipped += result.failures.length;
     }
 
     if (!reencryptJobShouldPersist(result.cancelled)) {
