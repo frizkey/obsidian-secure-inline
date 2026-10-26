@@ -1,3 +1,5 @@
+import { encryptToArmored, encryptToInlineToken } from "./crypto";
+import { decryptWithPassphrases } from "./passphrase-decrypt";
 import {
   applyReencryptPlan,
   planReencryption,
@@ -73,4 +75,55 @@ export async function sweepVaultReencrypt(
   }
 
   return result;
+}
+
+export async function reencryptFailuresWithPassphrase(
+  io: VaultFileIO,
+  failures: (ReencryptFailure & { path: string })[],
+  passphrases: string[],
+  recipients: string[],
+): Promise<{ converted: number; stillSkipped: number }> {
+  const byPath = new Map<string, (ReencryptFailure & { path: string })[]>();
+  for (const failure of failures) {
+    const list = byPath.get(failure.path) ?? [];
+    list.push(failure);
+    byPath.set(failure.path, list);
+  }
+
+  let converted = 0;
+  let stillSkipped = 0;
+  for (const [path, list] of byPath) {
+    const text = await io.read(path);
+    let updated = text;
+    let dirty = false;
+    for (const failure of list.sort((a, b) => b.from - a.from)) {
+      if (updated.slice(failure.from, failure.to) !== failure.original) {
+        stillSkipped += 1;
+        continue;
+      }
+      const plaintext = await decryptWithPassphrases(
+        failure.original,
+        failure.format,
+        passphrases,
+      );
+      if (plaintext === null) {
+        stillSkipped += 1;
+        continue;
+      }
+      const replacement =
+        failure.format === "armored"
+          ? (await encryptToArmored(plaintext, recipients)).trim()
+          : await encryptToInlineToken(plaintext, recipients);
+      updated =
+        updated.slice(0, failure.from) +
+        replacement +
+        updated.slice(failure.to);
+      converted += 1;
+      dirty = true;
+    }
+    if (dirty) {
+      await io.write(path, updated);
+    }
+  }
+  return { converted, stillSkipped };
 }

@@ -46,6 +46,51 @@ export class VaultReencryptModal extends Modal {
   }
 }
 
+export type ResumeChoice = "resume" | "restart" | "dismiss";
+
+export class ResumeVaultReencryptModal extends Modal {
+  private choice: ResumeChoice = "dismiss";
+
+  constructor(
+    app: App,
+    private doneFiles: number,
+    private totalFiles: number,
+    private resolve: (choice: ResumeChoice) => void,
+  ) {
+    super(app);
+  }
+
+  onOpen(): void {
+    this.titleEl.setText("Vault re-encryption incomplete");
+    this.contentEl.createEl("p", {
+      text: `A previous re-encryption stopped at ${this.doneFiles}/${this.totalFiles} files.`,
+    });
+    new Setting(this.contentEl)
+      .addButton((button) =>
+        button
+          .setButtonText("Resume")
+          .setCta()
+          .onClick(() => this.submit("resume")),
+      )
+      .addButton((button) =>
+        button.setButtonText("Start over").onClick(() => this.submit("restart")),
+      )
+      .addButton((button) =>
+        button.setButtonText("Dismiss").onClick(() => this.submit("dismiss")),
+      );
+  }
+
+  onClose(): void {
+    this.contentEl.empty();
+    this.resolve(this.choice);
+  }
+
+  private submit(choice: ResumeChoice): void {
+    this.choice = choice;
+    this.close();
+  }
+}
+
 export class ReencryptProgressBar {
   private el: HTMLElement;
 

@@ -18,6 +18,20 @@ import {
   encryptSecurePropertiesContent,
   hasPendingSecureProperties,
 } from "./secure-properties";
+import {
+  reencryptFailuresWithPassphrase,
+  sweepVaultReencrypt,
+  type VaultFileIO,
+} from "./vault-reencrypt";
+import {
+  ReencryptProgressBar,
+  ResumeVaultReencryptModal,
+  VaultReencryptModal,
+} from "./vault-reencrypt-modal";
+import {
+  runVaultReencrypt,
+  type VaultReencryptDeps,
+} from "./vault-reencrypt-runner";
 
 async function encryptSelection(
   plugin: SecureInlinePlugin,
@@ -224,6 +238,175 @@ async function reencryptSecrets(
   }
 }
 
+function buildVaultIO(plugin: SecureInlinePlugin): VaultFileIO {
+  const app = plugin.app;
+  const files = new Map(
+    app.vault.getMarkdownFiles().map((file) => [file.path, file]),
+  );
+  return {
+    async read(path) {
+      const file = files.get(path);
+      if (!file) {
+        throw new Error(`file not found: ${path}`);
+      }
+      return app.vault.cachedRead(file);
+    },
+    async write(path, content) {
+      const file = files.get(path);
+      if (!file) {
+        throw new Error(`file not found: ${path}`);
+      }
+      await app.vault.process(file, () => content);
+    },
+  };
+}
+
+async function reencryptVault(
+  plugin: SecureInlinePlugin,
+  opts: { resume?: boolean } = {},
+): Promise<void> {
+  const app = plugin.app;
+  const notify = (message: string) => new Notice(message);
+  const material = await plugin.refreshKeyMaterial();
+  for (const warning of material.warnings) {
+    new Notice(warning);
+  }
+  if (material.recipients.length === 0) {
+    notify("No age recipients configured");
+    return;
+  }
+  if (material.identities.length === 0) {
+    notify("No age identities available to decrypt secrets");
+    return;
+  }
+
+  const resume =
+    opts.resume === true &&
+    plugin.reencryptJob !== null &&
+    plugin.reencryptJob.status !== "done";
+  const doneSet = new Set(resume ? plugin.reencryptJob!.doneFiles : []);
+  const io = buildVaultIO(plugin);
+  const paths = app.vault
+    .getMarkdownFiles()
+    .map((file) => file.path)
+    .filter((path) => !doneSet.has(path));
+
+  const preview = await sweepVaultReencrypt(
+    io,
+    paths,
+    material.identities,
+    material.recipients,
+    { dryRun: true, isCancelled: () => false },
+  );
+  if (preview.reencrypted === 0 && preview.failures.length === 0) {
+    notify("No encrypted secrets found in vault");
+    return;
+  }
+  new VaultReencryptModal(app, preview, () => {
+    void executeVaultReencrypt(plugin, io, resume);
+  }).open();
+}
+
+async function executeVaultReencrypt(
+  plugin: SecureInlinePlugin,
+  io: VaultFileIO,
+  resume: boolean,
+): Promise<void> {
+  const app = plugin.app;
+  const notify = (message: string) => new Notice(message);
+  let cancelled = false;
+  const bar = new ReencryptProgressBar(plugin, () => {
+    cancelled = true;
+  });
+  const deps: VaultReencryptDeps = {
+    getMarkdownPaths: () => app.vault.getMarkdownFiles().map((f) => f.path),
+    io,
+    refreshKeyMaterial: () => plugin.refreshKeyMaterial(),
+    getJob: () => plugin.reencryptJob,
+    saveJob: (job) => plugin.saveReencryptJob(job),
+    isCancelled: () => cancelled,
+    onProgress: (done, total) => bar.update(done, total),
+    notify,
+  };
+
+  try {
+    const result = await runVaultReencrypt(deps, { resume });
+    if (!result) {
+      return;
+    }
+
+    let stillSkipped = result.skipped - result.failures.length;
+    let converted = 0;
+    if (result.failures.length > 0) {
+      new Notice(
+        `${result.failures.length} secret${
+          result.failures.length === 1 ? "" : "s"
+        } need a passphrase — entering one converts them to recipients`,
+      );
+      const passphrase = await promptForPassphrase(app);
+      if (passphrase) {
+        plugin.passphraseCache.add(
+          passphrase,
+          plugin.settings.passphraseCacheMinutes,
+        );
+        const material = await plugin.refreshKeyMaterial();
+        const phase = await reencryptFailuresWithPassphrase(
+          io,
+          result.failures,
+          [passphrase, ...plugin.passphraseCache.getPassphrases()],
+          material.recipients,
+        );
+        converted = phase.converted;
+        stillSkipped += phase.stillSkipped;
+      } else {
+        stillSkipped += result.failures.length;
+      }
+    }
+
+    await plugin.clearReencryptJob();
+    const parts = [
+      `Re-encrypted ${result.reencrypted} secret${
+        result.reencrypted === 1 ? "" : "s"
+      } in ${result.filesChanged} file${result.filesChanged === 1 ? "" : "s"}`,
+    ];
+    if (stillSkipped > 0) {
+      parts.push(`skipped ${stillSkipped}`);
+    }
+    if (converted > 0) {
+      parts.push(`converted ${converted}`);
+    }
+    if (result.cancelled) {
+      parts.push("cancelled — rerun to resume");
+    }
+    new Notice(parts.join("; "));
+  } finally {
+    bar.dispose();
+  }
+}
+
+export function promptResumeVaultReencrypt(
+  plugin: SecureInlinePlugin,
+): void {
+  const job = plugin.reencryptJob;
+  if (!job || job.status === "done") {
+    return;
+  }
+  new ResumeVaultReencryptModal(
+    plugin.app,
+    job.doneFiles.length,
+    job.totalFiles,
+    (choice) => {
+      if (choice === "resume") {
+        void reencryptVault(plugin, { resume: true });
+      } else if (choice === "restart") {
+        void plugin.clearReencryptJob().then(() => reencryptVault(plugin));
+      } else {
+        void plugin.clearReencryptJob();
+      }
+    },
+  ).open();
+}
+
 function refreshSecureViews(plugin: SecureInlinePlugin): void {
   plugin.app.workspace.iterateAllLeaves((leaf) => {
     const view = leaf.view;
@@ -298,6 +481,14 @@ export function registerCommands(plugin: SecureInlinePlugin): void {
     name: "Re-encrypt secrets for current recipients",
     editorCallback: (editor) => {
       void reencryptSecrets(plugin, editor);
+    },
+  });
+
+  plugin.addCommand({
+    id: "reencrypt-vault",
+    name: "Re-encrypt secrets in vault",
+    callback: () => {
+      void reencryptVault(plugin);
     },
   });
 

@@ -4,7 +4,10 @@ import { AGE_FILE_VIEW, AgeFileView } from "./age-file-view";
 import { registerAttachmentActions } from "./attachment-actions";
 import { registerAutoEncrypt } from "./auto-encrypt";
 import { PassphraseCache } from "./passphrase-cache";
-import { registerCommands } from "./commands";
+import {
+  promptResumeVaultReencrypt,
+  registerCommands,
+} from "./commands";
 import { registerInlineProcessor } from "./inline-widget";
 import { loadKeyMaterial, type KeyMaterial } from "./keys";
 import {
@@ -41,6 +44,9 @@ export default class SecureInlinePlugin extends Plugin {
     this.registerExtensions(["age"], AGE_FILE_VIEW);
     registerAttachmentActions(this);
     this.addSettingTab(new SecureInlineSettingTab(this.app, this));
+    this.app.workspace.onLayoutReady(() => {
+      promptResumeVaultReencrypt(this);
+    });
   }
 
   onunload(): void {
