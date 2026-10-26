@@ -1,0 +1,126 @@
+import * as age from "age-encryption";
+import { describe, expect, it } from "vitest";
+
+import { decryptInlineToken, encryptToInlineToken } from "../src/crypto";
+import { sweepVaultReencrypt, type VaultFileIO } from "../src/vault-reencrypt";
+
+function memoryIO(files: Record<string, string>): VaultFileIO & {
+  map: Map<string, string>;
+  writes: string[];
+} {
+  const map = new Map(Object.entries(files));
+  const writes: string[] = [];
+  return {
+    map,
+    writes,
+    async read(path) {
+      const value = map.get(path);
+      if (value === undefined) {
+        throw new Error(`missing ${path}`);
+      }
+      return value;
+    },
+    async write(path, content) {
+      writes.push(path);
+      map.set(path, content);
+    },
+  };
+}
+
+const noopCancel = () => false;
+
+describe("sweepVaultReencrypt", () => {
+  it("re-encrypts secrets across multiple files", async () => {
+    const idOld = await age.generateIdentity();
+    const idNew = await age.generateIdentity();
+    const recOld = await age.identityToRecipient(idOld);
+    const recNew = await age.identityToRecipient(idNew);
+    const token = await encryptToInlineToken("s", [recOld]);
+
+    const io = memoryIO({ "a.md": `x ${token}`, "b.md": `y ${token}` });
+    const result = await sweepVaultReencrypt(
+      io,
+      ["a.md", "b.md"],
+      [idOld],
+      [recOld, recNew],
+      { isCancelled: noopCancel },
+    );
+
+    expect(result.filesScanned).toBe(2);
+    expect(result.filesChanged).toBe(2);
+    expect(result.reencrypted).toBe(2);
+    expect(result.cancelled).toBe(false);
+    for (const path of ["a.md", "b.md"]) {
+      const newToken = io.map.get(path)!.match(/sec:v1:[A-Za-z0-9_-]+/)![0];
+      await expect(decryptInlineToken(newToken, [idNew])).resolves.toBe("s");
+    }
+  });
+
+  it("stops between files when cancelled", async () => {
+    const id = await age.generateIdentity();
+    const rec = await age.identityToRecipient(id);
+    const token = await encryptToInlineToken("s", [rec]);
+
+    const io = memoryIO({ "a.md": token, "b.md": token });
+    let done = 0;
+    const result = await sweepVaultReencrypt(
+      io,
+      ["a.md", "b.md"],
+      [id],
+      [rec],
+      {
+        isCancelled: () => done > 0,
+        onFileDone: () => {
+          done += 1;
+        },
+      },
+    );
+
+    expect(result.cancelled).toBe(true);
+    expect(result.filesScanned).toBe(1);
+    expect(io.map.get("b.md")).toBe(token);
+  });
+
+  it("makes no writes in dryRun", async () => {
+    const id = await age.generateIdentity();
+    const rec = await age.identityToRecipient(id);
+    const token = await encryptToInlineToken("s", [rec]);
+
+    const io = memoryIO({ "a.md": `x ${token}` });
+    const result = await sweepVaultReencrypt(
+      io,
+      ["a.md"],
+      [id],
+      [rec],
+      { isCancelled: noopCancel, dryRun: true },
+    );
+
+    expect(io.writes).toHaveLength(0);
+    expect(io.map.get("a.md")).toBe(`x ${token}`);
+    expect(result.reencrypted).toBe(1);
+    expect(result.filesChanged).toBe(0);
+  });
+
+  it("attaches file path to undecryptable failures", async () => {
+    const idMine = await age.generateIdentity();
+    const recMine = await age.identityToRecipient(idMine);
+    const recForeign = await age.identityToRecipient(
+      await age.generateIdentity(),
+    );
+    const foreign = await encryptToInlineToken("no", [recForeign]);
+
+    const io = memoryIO({ "a.md": "plain", "b.md": foreign });
+    const result = await sweepVaultReencrypt(
+      io,
+      ["a.md", "b.md"],
+      [idMine],
+      [recMine],
+      { isCancelled: noopCancel },
+    );
+
+    expect(result.skipped).toBe(1);
+    expect(result.failures).toHaveLength(1);
+    expect(result.failures[0].path).toBe("b.md");
+    expect(result.failures[0].format).toBe("inline");
+  });
+});
