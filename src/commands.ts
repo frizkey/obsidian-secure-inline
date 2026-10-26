@@ -12,7 +12,7 @@ import {
   encryptPendingPlaintext,
   loadEncryptionRecipients,
 } from "./pending-encrypt";
-import { planReencryption } from "./reencrypt";
+import { applyReencryptPlan, planReencryption } from "./reencrypt";
 import { scanSecureFences } from "./secure-fences";
 import {
   encryptSecurePropertiesContent,
@@ -206,25 +206,15 @@ async function reencryptSecrets(
     return;
   }
 
-  let reencrypted = 0;
-  let skipped = plan.skipped;
-  for (const replacement of plan.replacements.sort(
-    (a, b) => b.from - a.from,
-  )) {
-    const current = editor.getValue();
-    if (current.slice(replacement.from, replacement.to) !== replacement.original) {
-      skipped += 1;
-      continue;
-    }
-    editor.replaceRange(
-      replacement.updated,
-      editor.offsetToPos(replacement.from),
-      editor.offsetToPos(replacement.to),
-    );
-    reencrypted += 1;
+  const result = applyReencryptPlan(editor.getValue(), plan);
+  if (result.applied > 0) {
+    editor.setValue(result.text);
   }
 
-  new Notice(`Re-encrypted ${reencrypted} secret${reencrypted === 1 ? "" : "s"}`);
+  new Notice(
+    `Re-encrypted ${result.applied} secret${result.applied === 1 ? "" : "s"}`,
+  );
+  const skipped = plan.skipped + result.skippedExtra;
   if (skipped > 0) {
     new Notice(
       `Skipped ${skipped} undecryptable or changed secret${

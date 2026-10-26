@@ -5,6 +5,7 @@ import {
   encryptToArmored,
   encryptToInlineToken,
 } from "./crypto";
+import type { SecretFormat } from "./passphrase-decrypt";
 import { scanSecureFences } from "./secure-fences";
 import { parseSecureProperties } from "./secure-properties";
 
@@ -15,9 +16,40 @@ export interface ReencryptReplacement {
   updated: string;
 }
 
+export interface ReencryptFailure {
+  from: number;
+  to: number;
+  original: string;
+  format: SecretFormat;
+}
+
 export interface ReencryptPlan {
   replacements: ReencryptReplacement[];
+  failures: ReencryptFailure[];
   skipped: number;
+}
+
+export function applyReencryptPlan(
+  text: string,
+  plan: ReencryptPlan,
+): { text: string; applied: number; skippedExtra: number } {
+  let applied = 0;
+  let skippedExtra = 0;
+  let updated = text;
+  for (const replacement of plan.replacements.sort(
+    (a, b) => b.from - a.from,
+  )) {
+    if (updated.slice(replacement.from, replacement.to) !== replacement.original) {
+      skippedExtra += 1;
+      continue;
+    }
+    updated =
+      updated.slice(0, replacement.from) +
+      replacement.updated +
+      updated.slice(replacement.to);
+    applied += 1;
+  }
+  return { text: updated, applied, skippedExtra };
 }
 
 export async function planReencryption(
@@ -26,6 +58,7 @@ export async function planReencryption(
   recipients: string[],
 ): Promise<ReencryptPlan> {
   const replacements: ReencryptReplacement[] = [];
+  const failures: ReencryptFailure[] = [];
   let skipped = 0;
   const fences = scanSecureFences(text);
 
@@ -45,6 +78,12 @@ export async function planReencryption(
           });
         } catch {
           skipped += 1;
+          failures.push({
+            from: fence.contentFrom + line.valueFrom,
+            to: fence.contentFrom + line.valueTo,
+            original: line.value,
+            format: "inline",
+          });
         }
       }
       continue;
@@ -62,6 +101,12 @@ export async function planReencryption(
       });
     } catch {
       skipped += 1;
+      failures.push({
+        from: fence.contentFrom,
+        to: fence.contentTo,
+        original: fence.content,
+        format: "armored",
+      });
     }
   }
 
@@ -82,8 +127,14 @@ export async function planReencryption(
       });
     } catch {
       skipped += 1;
+      failures.push({
+        from,
+        to: from + token.length,
+        original: token,
+        format: "inline",
+      });
     }
   }
 
-  return { replacements, skipped };
+  return { replacements, failures, skipped };
 }
