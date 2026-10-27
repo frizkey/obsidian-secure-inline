@@ -147,8 +147,34 @@ describe("sweepVaultReencrypt", () => {
     );
     expect(result.reencrypted).toBe(0);
     expect(result.filesChanged).toBe(0);
+    expect(result.candidatePaths).toEqual([]);
     expect(io.writes).toHaveLength(0);
     expect(io.map.get("plain.md")).toBe("no secrets here");
+  });
+
+  it("identifies candidate paths only for files containing secrets", async () => {
+    const id = await age.generateIdentity();
+    const rec = await age.identityToRecipient(id);
+    const token = await encryptToInlineToken("secret", [rec]);
+
+    const io = memoryIO({
+      "plain1.md": "hello world",
+      "secret.md": `my key: ${token}`,
+      "plain2.md": "another plain file",
+    });
+
+    const preview = await sweepVaultReencrypt(
+      io,
+      ["plain1.md", "secret.md", "plain2.md"],
+      [id],
+      [rec],
+      { isCancelled: noopCancel, dryRun: true },
+    );
+
+    expect(preview.filesScanned).toBe(3);
+    expect(preview.candidatePaths).toEqual(["secret.md"]);
+    expect(preview.reencrypted).toBe(1);
+    expect(io.writes).toHaveLength(0);
   });
 
   it("verifies positions against live content inside write transform", async () => {

@@ -32,6 +32,7 @@ export interface VaultSweepResult {
   skipped: number;
   failures: (ReencryptFailure & { path: string })[];
   cancelled: boolean;
+  candidatePaths: string[];
 }
 
 const defaultYield = (): Promise<void> =>
@@ -53,6 +54,7 @@ export async function sweepVaultReencrypt(
     skipped: 0,
     failures: [],
     cancelled: false,
+    candidatePaths: [],
   };
 
   for (const path of paths) {
@@ -67,6 +69,9 @@ export async function sweepVaultReencrypt(
       result.skipped += plan.skipped;
       for (const failure of plan.failures) {
         result.failures.push({ ...failure, path });
+      }
+      if (plan.replacements.length > 0 || plan.failures.length > 0) {
+        result.candidatePaths.push(path);
       }
       if (!opts.dryRun && plan.replacements.length > 0) {
         const applied = await io.write(path, (current) =>
