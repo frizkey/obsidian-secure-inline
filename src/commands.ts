@@ -314,7 +314,7 @@ async function reencryptVault(
     return;
   }
   new VaultReencryptModal(app, preview, () => {
-    executeVaultReencrypt(plugin, io, resume).catch((error: unknown) => {
+    executeVaultReencrypt(plugin, io, resume, preview.candidatePaths).catch((error: unknown) => {
       new Notice(
         `Re-encrypt failed: ${
           error instanceof Error ? error.message : String(error)
@@ -328,6 +328,7 @@ async function executeVaultReencrypt(
   plugin: SecureInlinePlugin,
   io: VaultFileIO,
   resume: boolean,
+  targetPaths?: string[],
 ): Promise<void> {
   const app = plugin.app;
   const notify = (message: string) => new Notice(message);
@@ -336,7 +337,7 @@ async function executeVaultReencrypt(
     cancelled = true;
   });
   const deps: VaultReencryptDeps = {
-    getMarkdownPaths: () => app.vault.getMarkdownFiles().map((f) => f.path),
+    getMarkdownPaths: () => targetPaths ?? app.vault.getMarkdownFiles().map((f) => f.path),
     io,
     refreshKeyMaterial: () => plugin.refreshKeyMaterial(),
     getJob: () => plugin.reencryptJob,

@@ -120,4 +120,23 @@ describe("runVaultReencrypt", () => {
     expect(getJob()!.status).toBe("cancelled");
     expect(getJob()!.doneFiles).toEqual(["a.md"]);
   });
+
+  it("runs sweep only over targeted candidate paths when provided", async () => {
+    const id = await age.generateIdentity();
+    const rec = await age.identityToRecipient(id);
+    const token = await encryptToInlineToken("s", [rec]);
+
+    const { deps, reads, getJob } = makeDeps({
+      files: { "plain.md": "no secret", "target.md": token },
+      material: material([id], [rec]),
+    });
+    deps.getMarkdownPaths = () => ["target.md"];
+
+    const result = await runVaultReencrypt(deps, {});
+    expect(result).not.toBeNull();
+    expect(reads).toEqual(["target.md"]);
+    expect(result!.filesScanned).toBe(1);
+    expect(result!.reencrypted).toBe(1);
+    expect(getJob()!.totalFiles).toBe(1);
+  });
 });
