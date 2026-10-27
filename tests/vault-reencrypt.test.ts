@@ -177,6 +177,38 @@ describe("sweepVaultReencrypt", () => {
     expect(io.writes).toHaveLength(0);
   });
 
+  it("calls onFileDone and respects isCancelled in dryRun mode", async () => {
+    const id = await age.generateIdentity();
+    const rec = await age.identityToRecipient(id);
+    const token = await encryptToInlineToken("test", [rec]);
+
+    const io = memoryIO({ "a.md": token, "b.md": token, "c.md": token });
+    const done: string[] = [];
+    let cancel = false;
+
+    const result = await sweepVaultReencrypt(
+      io,
+      ["a.md", "b.md", "c.md"],
+      [id],
+      [rec],
+      {
+        dryRun: true,
+        onFileDone: (path) => {
+          done.push(path);
+          if (done.length === 2) {
+            cancel = true;
+          }
+        },
+        isCancelled: () => cancel,
+      },
+    );
+
+    expect(result.cancelled).toBe(true);
+    expect(result.filesScanned).toBe(2);
+    expect(done).toEqual(["a.md", "b.md"]);
+    expect(io.writes).toHaveLength(0);
+  });
+
   it("verifies positions against live content inside write transform", async () => {
     const id = await age.generateIdentity();
     const rec = await age.identityToRecipient(id);
