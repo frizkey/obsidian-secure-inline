@@ -1,8 +1,8 @@
 import * as age from "age-encryption";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { App } from "obsidian";
-import { describe, expect, it } from "vitest";
+import { Platform, type App } from "obsidian";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { DEVICE_IDENTITY_SECRET_ID } from "../src/device-identity";
 import { loadKeyMaterial, parseKeysFile } from "../src/keys";
@@ -37,6 +37,51 @@ describe("parseKeysFile", () => {
     expect(material.warnings).toEqual([
       "unsupported age identity on line 6",
     ]);
+  });
+});
+
+describe("loadKeyMaterial keys file", () => {
+  afterEach(() => {
+    Platform.isDesktop = false;
+  });
+
+  it("loads identities and recipients from the configured keys file on desktop", async () => {
+    Platform.isDesktop = true;
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      keysFilePath: join(__dirname, "fixtures", "keys.txt"),
+    };
+
+    const material = await loadKeyMaterial({} as unknown as App, settings);
+
+    expect(material.identities).toEqual([
+      "AGE-SECRET-KEY-1QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQPEW38Y",
+    ]);
+    expect(material.recipients).toEqual([
+      "age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqy0w8mk",
+      "age1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq0m5h4l",
+    ]);
+    expect(material.warnings).toEqual([
+      "unsupported age identity on line 6",
+    ]);
+  });
+
+  it("warns with the OS error when the keys file is missing", async () => {
+    Platform.isDesktop = true;
+    const settings = {
+      ...DEFAULT_SETTINGS,
+      keysFilePath: join(__dirname, "fixtures", "does-not-exist.txt"),
+    };
+
+    const material = await loadKeyMaterial({} as unknown as App, settings);
+
+    expect(material.identities).toEqual([]);
+    expect(material.warnings).toEqual([
+      expect.stringContaining(
+        `keys file unavailable: ${settings.keysFilePath}`,
+      ),
+    ]);
+    expect(material.warnings[0]).toMatch(/ENOENT/);
   });
 });
 

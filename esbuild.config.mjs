@@ -17,6 +17,7 @@ const context = await esbuild.context({
   external,
   format: "cjs",
   target: "es2022",
+  supported: { "dynamic-import": false },
   sourcemap: production ? false : "inline",
   treeShaking: true,
   outfile: "main.js",
