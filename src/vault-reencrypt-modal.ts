@@ -13,9 +13,10 @@ export class VaultReencryptModal extends Modal {
 
   onOpen(): void {
     this.titleEl.setText("Re-encrypt secrets in vault");
-    const { filesScanned, reencrypted, skipped } = this.preview;
+    const { candidatePaths, filesScanned, reencrypted, skipped } = this.preview;
+    const fileCount = candidatePaths ? candidatePaths.length : filesScanned;
     this.contentEl.createEl("p", {
-      text: `${reencrypted} secret${reencrypted === 1 ? "" : "s"} in ${filesScanned} file${filesScanned === 1 ? "" : "s"} will be re-encrypted to the current recipients.`,
+      text: `${reencrypted} secret${reencrypted === 1 ? "" : "s"} in ${fileCount} file${fileCount === 1 ? "" : "s"} will be re-encrypted to the current recipients.`,
     });
     if (skipped > 0) {
       this.contentEl.createEl("p", {
