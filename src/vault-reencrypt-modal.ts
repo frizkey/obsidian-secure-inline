@@ -98,15 +98,16 @@ export class ReencryptProgressBar {
   constructor(
     plugin: Plugin,
     private onCancel: () => void,
+    private labelPrefix: string = "Re-encrypting",
   ) {
     this.el = plugin.addStatusBarItem();
     this.el.addClass("secure-inline-reencrypt-progress");
-    this.el.setText("Re-encrypting 0/0");
+    this.el.setText(`${this.labelPrefix} 0/0`);
     this.el.addEventListener("click", () => this.onCancel());
   }
 
   update(done: number, total: number): void {
-    this.el.setText(`Re-encrypting ${done}/${total}`);
+    this.el.setText(`${this.labelPrefix} ${done}/${total}`);
   }
 
   dispose(): void {
