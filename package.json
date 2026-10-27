@@ -8,6 +8,7 @@
     "dev": "node esbuild.config.mjs",
     "build": "node esbuild.config.mjs production",
     "install:local": "node scripts/install.mjs",
+    "release": "node scripts/release.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

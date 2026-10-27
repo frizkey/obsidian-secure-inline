@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag (e.g. 0.1.5). Optional if triggered from a git tag."
+        required: false
+        type: string
 
 permissions:
   contents: write
@@ -14,7 +20,22 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
+      - name: Resolve release tag
+        id: resolve-tag
+        run: |
+          if [ -n "${{ inputs.tag }}" ]; then
+            TAG="${{ inputs.tag }}"
+          elif [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            TAG="${{ github.ref_name }}"
+          else
+            echo "::error::Release requires a tag. Specify an input tag or push a git tag."
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - uses: actions/setup-node@v4
         with:
@@ -24,11 +45,18 @@ jobs:
       - run: npm ci
       - run: npm run build
 
-      - name: Create release
+      - name: Create or update release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG: ${{ github.ref_name }}
-        run: gh release create "$TAG" main.js manifest.json styles.css --title "$TAG" --generate-notes
+          TAG: ${{ steps.resolve-tag.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists. Uploading/updating assets..."
+            gh release upload "$TAG" main.js manifest.json styles.css --clobber
+          else
+            echo "Creating new release $TAG..."
+            gh release create "$TAG" main.js manifest.json styles.css --title "$TAG" --generate-notes
+          fi
 
       - name: Attest build provenance
         uses: actions/attest-build-provenance@v2
