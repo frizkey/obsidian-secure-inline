@@ -23,6 +23,7 @@ import {
   reencryptFailuresWithPassphrase,
   sweepVaultReencrypt,
   type VaultFileIO,
+  type VaultSweepResult,
 } from "./vault-reencrypt";
 import {
   ReencryptProgressBar,
@@ -297,13 +298,42 @@ async function reencryptVault(
     .map((file) => file.path)
     .filter((path) => !doneSet.has(path));
 
-  const preview = await sweepVaultReencrypt(
-    io,
-    paths,
-    material.identities,
-    material.recipients,
-    { dryRun: true, isCancelled: () => false },
+  let cancelled = false;
+  const bar = new ReencryptProgressBar(
+    plugin,
+    () => {
+      cancelled = true;
+    },
+    "Scanning vault",
   );
+  let scanned = 0;
+  const total = paths.length;
+  bar.update(0, total);
+
+  let preview: VaultSweepResult;
+  try {
+    preview = await sweepVaultReencrypt(
+      io,
+      paths,
+      material.identities,
+      material.recipients,
+      {
+        dryRun: true,
+        isCancelled: () => cancelled,
+        onFileDone: () => {
+          scanned += 1;
+          bar.update(scanned, total);
+        },
+      },
+    );
+  } finally {
+    bar.dispose();
+  }
+
+  if (preview.cancelled) {
+    notify("Vault scan cancelled");
+    return;
+  }
   if (preview.reencrypted === 0 && preview.failures.length === 0) {
     if (resume) {
       await plugin.clearReencryptJob();
