@@ -12,12 +12,28 @@ import {
   encryptPendingPlaintext,
   loadEncryptionRecipients,
 } from "./pending-encrypt";
-import { planReencryption } from "./reencrypt";
+import { applyReencryptPlan, planReencryption } from "./reencrypt";
+import { reencryptJobShouldPersist } from "./reencrypt-job";
 import { scanSecureFences } from "./secure-fences";
 import {
   encryptSecurePropertiesContent,
   hasPendingSecureProperties,
 } from "./secure-properties";
+import {
+  reencryptFailuresWithPassphrase,
+  sweepVaultReencrypt,
+  type VaultFileIO,
+  type VaultSweepResult,
+} from "./vault-reencrypt";
+import {
+  ReencryptProgressBar,
+  ResumeVaultReencryptModal,
+  VaultReencryptModal,
+} from "./vault-reencrypt-modal";
+import {
+  runVaultReencrypt,
+  type VaultReencryptDeps,
+} from "./vault-reencrypt-runner";
 
 async function encryptSelection(
   plugin: SecureInlinePlugin,
@@ -206,25 +222,15 @@ async function reencryptSecrets(
     return;
   }
 
-  let reencrypted = 0;
-  let skipped = plan.skipped;
-  for (const replacement of plan.replacements.sort(
-    (a, b) => b.from - a.from,
-  )) {
-    const current = editor.getValue();
-    if (current.slice(replacement.from, replacement.to) !== replacement.original) {
-      skipped += 1;
-      continue;
-    }
-    editor.replaceRange(
-      replacement.updated,
-      editor.offsetToPos(replacement.from),
-      editor.offsetToPos(replacement.to),
-    );
-    reencrypted += 1;
+  const result = applyReencryptPlan(editor.getValue(), plan);
+  if (result.applied > 0) {
+    editor.setValue(result.text);
   }
 
-  new Notice(`Re-encrypted ${reencrypted} secret${reencrypted === 1 ? "" : "s"}`);
+  new Notice(
+    `Re-encrypted ${result.applied} secret${result.applied === 1 ? "" : "s"}`,
+  );
+  const skipped = plan.skipped + result.skippedExtra;
   if (skipped > 0) {
     new Notice(
       `Skipped ${skipped} undecryptable or changed secret${
@@ -232,6 +238,231 @@ async function reencryptSecrets(
       }`,
     );
   }
+}
+
+function buildVaultIO(plugin: SecureInlinePlugin): VaultFileIO {
+  const app = plugin.app;
+  const files = new Map(
+    app.vault.getMarkdownFiles().map((file) => [file.path, file]),
+  );
+  return {
+    async read(path) {
+      const file = files.get(path);
+      if (!file) {
+        throw new Error(`file not found: ${path}`);
+      }
+      return app.vault.cachedRead(file);
+    },
+    async write(path, transform) {
+      const file = files.get(path);
+      if (!file) {
+        throw new Error(`file not found: ${path}`);
+      }
+      let outcome = { text: "", applied: 0, skippedExtra: 0 };
+      await app.vault.process(file, (current) => {
+        outcome = transform(current);
+        return outcome.text;
+      });
+      return outcome;
+    },
+  };
+}
+
+async function reencryptVault(
+  plugin: SecureInlinePlugin,
+  opts: { resume?: boolean } = {},
+): Promise<void> {
+  const app = plugin.app;
+  const notify = (message: string) => new Notice(message);
+  const material = await plugin.refreshKeyMaterial();
+  for (const warning of material.warnings) {
+    new Notice(warning);
+  }
+  if (material.recipients.length === 0) {
+    notify("No age recipients configured");
+    return;
+  }
+  if (material.identities.length === 0) {
+    notify("No age identities available to decrypt secrets");
+    return;
+  }
+
+  const resume =
+    opts.resume === true &&
+    plugin.reencryptJob !== null &&
+    plugin.reencryptJob.status !== "done";
+  const doneSet = new Set(resume ? plugin.reencryptJob!.doneFiles : []);
+  const io = buildVaultIO(plugin);
+  const paths = app.vault
+    .getMarkdownFiles()
+    .map((file) => file.path)
+    .filter((path) => !doneSet.has(path));
+
+  let cancelled = false;
+  const bar = new ReencryptProgressBar(
+    plugin,
+    () => {
+      cancelled = true;
+    },
+    "Scanning vault",
+  );
+  let scanned = 0;
+  const total = paths.length;
+  bar.update(0, total);
+
+  let preview: VaultSweepResult;
+  try {
+    preview = await sweepVaultReencrypt(
+      io,
+      paths,
+      material.identities,
+      material.recipients,
+      {
+        dryRun: true,
+        isCancelled: () => cancelled,
+        onFileDone: () => {
+          scanned += 1;
+          bar.update(scanned, total);
+        },
+      },
+    );
+  } finally {
+    bar.dispose();
+  }
+
+  if (preview.cancelled) {
+    notify("Vault scan cancelled");
+    return;
+  }
+  if (preview.reencrypted === 0 && preview.failures.length === 0) {
+    if (resume) {
+      await plugin.clearReencryptJob();
+      notify("Vault re-encryption already complete");
+    } else {
+      notify("No encrypted secrets found in vault");
+    }
+    return;
+  }
+  new VaultReencryptModal(app, preview, () => {
+    executeVaultReencrypt(plugin, io, resume, preview.candidatePaths).catch((error: unknown) => {
+      new Notice(
+        `Re-encrypt failed: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
+      );
+    });
+  }).open();
+}
+
+async function executeVaultReencrypt(
+  plugin: SecureInlinePlugin,
+  io: VaultFileIO,
+  resume: boolean,
+  targetPaths?: string[],
+): Promise<void> {
+  const app = plugin.app;
+  const notify = (message: string) => new Notice(message);
+  let cancelled = false;
+  const bar = new ReencryptProgressBar(plugin, () => {
+    cancelled = true;
+  });
+  const deps: VaultReencryptDeps = {
+    getMarkdownPaths: () => targetPaths ?? app.vault.getMarkdownFiles().map((f) => f.path),
+    io,
+    refreshKeyMaterial: () => plugin.refreshKeyMaterial(),
+    getJob: () => plugin.reencryptJob,
+    saveJob: (job) => plugin.saveReencryptJob(job),
+    isCancelled: () => cancelled,
+    onProgress: (done, total) => bar.update(done, total),
+    notify,
+  };
+
+  try {
+    const result = await runVaultReencrypt(deps, { resume });
+    if (!result) {
+      return;
+    }
+
+    let stillSkipped = result.skipped - result.failures.length;
+    let converted = 0;
+    if (!result.cancelled && result.failures.length > 0) {
+      new Notice(
+        `${result.failures.length} secret${
+          result.failures.length === 1 ? "" : "s"
+        } need a passphrase — entering one converts them to recipients`,
+      );
+      const passphrase = await promptForPassphrase(
+        app,
+        "Convert passphrase secrets to recipients",
+      );
+      if (passphrase) {
+        plugin.passphraseCache.add(
+          passphrase,
+          plugin.settings.passphraseCacheMinutes,
+        );
+        const material = await plugin.refreshKeyMaterial();
+        const phase = await reencryptFailuresWithPassphrase(
+          io,
+          result.failures,
+          [passphrase, ...plugin.passphraseCache.getPassphrases()],
+          material.recipients,
+        );
+        converted = phase.converted;
+        stillSkipped += phase.stillSkipped;
+      } else {
+        stillSkipped += result.failures.length;
+      }
+    } else {
+      stillSkipped += result.failures.length;
+    }
+
+    if (!reencryptJobShouldPersist(result.cancelled)) {
+      await plugin.clearReencryptJob();
+    }
+    const parts = [
+      `Re-encrypted ${result.reencrypted} secret${
+        result.reencrypted === 1 ? "" : "s"
+      } in ${result.filesChanged} file${result.filesChanged === 1 ? "" : "s"}`,
+    ];
+    if (stillSkipped > 0) {
+      parts.push(`skipped ${stillSkipped}`);
+    }
+    if (result.filesFailed > 0) {
+      parts.push(`${result.filesFailed} file${result.filesFailed === 1 ? "" : "s"} failed`);
+    }
+    if (converted > 0) {
+      parts.push(`converted ${converted}`);
+    }
+    if (result.cancelled) {
+      parts.push("cancelled — rerun to resume");
+    }
+    new Notice(parts.join("; "));
+  } finally {
+    bar.dispose();
+  }
+}
+
+export function promptResumeVaultReencrypt(
+  plugin: SecureInlinePlugin,
+): void {
+  const job = plugin.reencryptJob;
+  if (!job || job.status === "done") {
+    return;
+  }
+  new ResumeVaultReencryptModal(
+    plugin.app,
+    job.doneFiles.length,
+    job.totalFiles,
+    (choice) => {
+      if (choice === "resume") {
+        void reencryptVault(plugin, { resume: true });
+      } else if (choice === "restart") {
+        void plugin.clearReencryptJob().then(() => reencryptVault(plugin));
+      } else {
+        void plugin.clearReencryptJob();
+      }
+    },
+  ).open();
 }
 
 function refreshSecureViews(plugin: SecureInlinePlugin): void {
@@ -308,6 +539,14 @@ export function registerCommands(plugin: SecureInlinePlugin): void {
     name: "Re-encrypt secrets for current recipients",
     editorCallback: (editor) => {
       void reencryptSecrets(plugin, editor);
+    },
+  });
+
+  plugin.addCommand({
+    id: "reencrypt-vault",
+    name: "Re-encrypt secrets in vault",
+    callback: () => {
+      void reencryptVault(plugin);
     },
   });
 

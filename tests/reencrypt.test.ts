@@ -8,7 +8,7 @@ import {
   encryptToArmoredWithPassphrase,
   encryptToInlineToken,
 } from "../src/crypto";
-import { planReencryption } from "../src/reencrypt";
+import { applyReencryptPlan, planReencryption } from "../src/reencrypt";
 
 function applyReplacements(
   text: string,
@@ -120,5 +120,53 @@ describe("planReencryption", () => {
     const plan = await planReencryption(text, [idOld], [recOld]);
     expect(plan.replacements).toHaveLength(0);
     expect(plan.skipped).toBe(0);
+  });
+
+  it("records undecryptable secrets in failures with position and format", async () => {
+    const idOther = await age.generateIdentity();
+    const recOther = await age.identityToRecipient(idOther);
+    const armored = await encryptToArmored("x", [recOther]);
+    const token = await encryptToInlineToken("y", [recOther]);
+    const text = `\`\`\`secure\n${armored.trim()}\n\`\`\`\n${token}`;
+
+    const plan = await planReencryption(text, ["bogus-identity"], [recOther]);
+    expect(plan.failures).toHaveLength(2);
+    expect(plan.failures[0].format).toBe("armored");
+    expect(plan.failures[1].format).toBe("inline");
+    expect(text.slice(plan.failures[1].from, plan.failures[1].to)).toBe(token);
+  });
+});
+
+describe("applyReencryptPlan", () => {
+  it("skips replacements whose positions went stale", async () => {
+    const idOld = await age.generateIdentity();
+    const recOld = await age.identityToRecipient(idOld);
+    const token = await encryptToInlineToken("keep-me", [recOld]);
+    const text = `a ${token} z`;
+
+    const plan = await planReencryption(text, [idOld], [recOld]);
+    expect(plan.replacements).toHaveLength(1);
+
+    const mutated = text.replace("a ", "aa ");
+    const result = applyReencryptPlan(mutated, plan);
+    expect(result.applied).toBe(0);
+    expect(result.skippedExtra).toBe(1);
+    expect(result.text).toBe(mutated);
+  });
+
+  it("applies replacements in order and reports counts", async () => {
+    const idOld = await age.generateIdentity();
+    const recOld = await age.identityToRecipient(idOld);
+    const recNew = await age.identityToRecipient(
+      await age.generateIdentity(),
+    );
+    const token = await encryptToInlineToken("s1", [recOld]);
+    const text = `${token} mid ${token}`;
+
+    const plan = await planReencryption(text, [idOld], [recOld, recNew]);
+    const result = applyReencryptPlan(text, plan);
+    expect(result.applied).toBe(2);
+    expect(result.skippedExtra).toBe(0);
+    expect(result.text).not.toContain(token);
   });
 });

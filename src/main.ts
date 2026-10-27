@@ -4,9 +4,16 @@ import { AGE_FILE_VIEW, AgeFileView } from "./age-file-view";
 import { registerAttachmentActions } from "./attachment-actions";
 import { registerAutoEncrypt } from "./auto-encrypt";
 import { PassphraseCache } from "./passphrase-cache";
-import { registerCommands } from "./commands";
+import {
+  promptResumeVaultReencrypt,
+  registerCommands,
+} from "./commands";
 import { registerInlineProcessor } from "./inline-widget";
 import { loadKeyMaterial, type KeyMaterial } from "./keys";
+import {
+  normalizeReencryptJob,
+  type ReencryptJob,
+} from "./reencrypt-job";
 import { registerLivePreview } from "./live-preview";
 import { registerSecureBlockProcessor } from "./secure-block-widget";
 import { registerSecurePropertiesProcessor } from "./secure-properties-widget";
@@ -23,6 +30,7 @@ export default class SecureInlinePlugin extends Plugin {
   revealAll = false;
   revealEpoch = 0;
   passphraseCache = new PassphraseCache();
+  reencryptJob: ReencryptJob | null = null;
 
   async onload(): Promise<void> {
     await this.loadSettings();
@@ -36,6 +44,9 @@ export default class SecureInlinePlugin extends Plugin {
     this.registerExtensions(["age"], AGE_FILE_VIEW);
     registerAttachmentActions(this);
     this.addSettingTab(new SecureInlineSettingTab(this.app, this));
+    this.app.workspace.onLayoutReady(() => {
+      promptResumeVaultReencrypt(this);
+    });
   }
 
   onunload(): void {
@@ -44,13 +55,27 @@ export default class SecureInlinePlugin extends Plugin {
 
   async loadSettings(): Promise<void> {
     const data = (await this.loadData()) as
-      | Partial<SecureInlineSettings>
+      | (Partial<SecureInlineSettings> & { reencryptJob?: unknown })
       | null;
+    this.reencryptJob = normalizeReencryptJob(data?.reencryptJob);
+    if (data && "reencryptJob" in data) {
+      delete data.reencryptJob;
+    }
     this.settings = { ...DEFAULT_SETTINGS, ...data };
   }
 
   async saveSettings(): Promise<void> {
-    await this.saveData(this.settings);
+    await this.saveData({ ...this.settings, reencryptJob: this.reencryptJob });
+  }
+
+  async saveReencryptJob(job: ReencryptJob): Promise<void> {
+    this.reencryptJob = job;
+    await this.saveSettings();
+  }
+
+  async clearReencryptJob(): Promise<void> {
+    this.reencryptJob = null;
+    await this.saveSettings();
   }
 
   async refreshKeyMaterial(): Promise<KeyMaterial> {
